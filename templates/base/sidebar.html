@@ -1,0 +1,86 @@
+<!-- templates/partials/sidebar.html -->
+<div id="dw-s1" class="bmd-layout-drawer bg-faded">
+  <div class="container-fluid side-bar-container">
+    <header class="pb-0">
+      <a class="navbar-brand">
+        <object
+          class="side-logo"
+          data="/static/svg/logo-8.svg"
+          type="image/svg+xml"></object>
+      </a>
+    </header>
+    
+
+    <li class="side a-collapse short mt-3">
+      <a href="/dashboard/" class="side-item">
+        <i class="fas fa-tachometer-alt ml-1"></i>
+        داشبورد
+        {% comment %} <span class="badge badge-pill badge-success">جدید</span> {% endcomment %}
+      </a>
+    </li>
+
+    <li class="side a-collapse short">
+      <a href="/articles/" class="side-item">
+        <i class="fas fa-icons ml-1"></i>
+        مقاله
+      </a>
+    </li>
+    <li class="side a-collapse short">
+      <a href="/books/" class="side-item">
+        <i class="fas fa-icons ml-1"></i>
+        کتاب
+      </a>
+    </li>
+    <li class="side a-collapse short">
+      <a href="/translated-books/" class="side-item">
+        <i class="fas fa-icons ml-1"></i>
+        ترجمه کتاب
+      </a>
+    </li>
+    <li class="side a-collapse short">
+      <a href="#" class="side-item">
+        <i class="fas fa-icons ml-1"></i>
+       پروپوزال 
+      </a>
+    </li>
+    <li class="side a-collapse short">
+      <a href="/ResearchProject/" class="side-item">
+        <i class="fas fa-icons ml-1"></i>
+       طرح آزمایشی 
+      </a>
+    </li>
+    <li class="side a-collapse short">
+      <a href="/theses/" class="side-item">
+        <i class="fas fa-icons ml-1"></i>
+       پایان نامه   
+      </a>
+    </li>
+
+    {% comment %} <ul class="side a-collapse short">
+      <a class="ul-text fnt-mxs">
+        <i class="fas fa-tachometer-alt ml-1"></i> صفحه
+        <i class="fas fa-chevron-down arrow"></i>
+      </a>
+      <div class="side-item-container hide animated">
+        <li class="side-item">
+          <a href="./" class="fnt-mxs"
+            ><i class="fas fa-angle-right mr-2"></i>پنل کاربری</a
+          >
+        </li>
+        <!-- بقیه آیتم‌های منوی کناری -->
+      </div>
+    </ul> {% endcomment %}
+  </div>
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentPath = window.location.pathname;
+        document.querySelectorAll('.side-item').forEach(item => {
+          if (item.getAttribute('href') === currentPath) {
+            item.classList.add('selected', 'c-dark');
+          }
+        });
+      });
+</script>

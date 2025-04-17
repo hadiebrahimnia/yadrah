@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>یادراه - سامانه مدیریت پروژه‌های علمی</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'IRANSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+        
+        body {
+            direction: rtl;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background-color: white;
+            padding: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .logo {
+            width: 160px;
+            height: 32px;
+        }
+        
+        .nav-menu {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .nav-item {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .nav-item:hover .dropdown {
+            display: block;
+        }
+        
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: white;
+            min-width: 200px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 10px 0;
+        }
+        
+        .dropdown a {
+            display: block;
+            padding: 8px 20px;
+            color: #333;
+            text-decoration: none;
+        }
+        
+        .dropdown a:hover {
+            color: #3498db;
+        }
+        
+        .hero {
+            display: flex;
+            background-color: #3498db;
+            color: white;
+            min-height: 500px;
+        }
+        
+        .hero-content {
+            flex: 1;
+            padding: 60px;
+            max-width: 600px;
+        }
+        
+        .hero-image {
+            flex: 1;
+            background-image: url('/static/images/home/academic.jpg');
+            background-size: cover;
+            background-position: center;
+            transform: scaleX(-1);
+        }
+        
+        .hero-title {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .hero-description {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .register-btn {
+            background-color: white;
+            color: #3498db;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        
+        .services {
+            padding: 60px 20px;
+            background-color: #f0f7fc;
+            text-align: center;
+        }
+        
+        .services-title {
+            font-size: 2rem;
+            margin-bottom: 40px;
+            color: #333;
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .service-card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            text-align: right;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+        
+        .service-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .service-icon {
+            width: 60px;
+            height: 60px;
+            margin-left: 15px;
+        }
+        
+        .service-info h3 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .service-info p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .platform {
+            display: flex;
+            padding: 60px;
+            background-color: white;
+        }
+        
+        .platform-image {
+            flex: 1;
+            background-image: url('/static/images/home/research-platform.jpg');
+            background-size: cover;
+            background-position: left center;
+            min-height: 450px;
+        }
+        
+        .platform-content {
+            flex: 1;
+            padding-right: 60px;
+        }
+        
+        .platform-title {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .platform-description {
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 40px;
+        }
+        
+        .features {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+        
+        .feature {
+            flex: 0 0 30%;
+            text-align: center;
+        }
+        
+        .feature-icon {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 15px;
+        }
+        
+        .feature h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .feature p {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        
+        .advisor-section {
+            background-color: #f0f7fc;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .advisor-title {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .advisor-subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            color: #666;
+        }
+        
+        .advisor-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 40px;
+        }
+        
+        .benefits {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .benefit-card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            text-align: right;
+        }
+        
+        .benefit-icon {
+            width: 60px;
+            height: 60px;
+            margin-left: 15px;
+        }
+        
+        .benefit-info h3 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .benefit-info p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        footer {
+            background-color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .footer-links a {
+            color: #666;
+            text-decoration: none;
+        }
+        
+        .footer-links a:hover {
+            color: #3498db;
+        }
+        
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .social-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #f5f5f5;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .certificates {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .certificate {
+            width: 130px;
+            height: 130px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-container">
+            <nav class="nav-menu">
+                <a href="#" class="nav-item">ورود/ ثبت نام </a>
+                <a href="/dashboard/" class="">داشبورد</a>
+            </nav>
+            <img src="/static/images/logo/logoW.png" alt="logo" class="logo">
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">مدیریت حرفه‌ای پروژه‌های علمی با یادراه</h1>
+            <p class="hero-description">از نگارش پایان‌نامه و مقاله تا تالیف کتاب، ترجمه تخصصی و انجام پژوهش‌های علمی را می‌توانید با یادراه به بهترین شکل مدیریت کنید.</p>
+            <button class="register-btn">ثبت‌نام در سامانه</button>
+        </div>
+        <div class="hero-image"></div>
+    </section>
+
+    <section class="services">
+        <h2 class="services-title">یک پلتفرم جامع برای تمام نیازهای علمی شما</h2>
+        <div class="services-grid">
+            <div class="service-card">
+                <img src="/static/images/icons/thesis.png" alt="پایان‌نامه" class="service-icon">
+                <div class="service-info">
+                    <h3>مدیریت پایان‌نامه</h3>
+                    <p>از انتخاب موضوع تا دفاع نهایی با راهنمایی اساتید مجرب</p>
+                </div>
+            </div>
+            <div class="service-card">
+                <img src="/static/images/icons/article.png" alt="مقاله علمی" class="service-icon">
+                <div class="service-info">
+                    <h3>نگارش مقاله علمی</h3>
+                    <p>نگارش، ترجمه و سابمیت مقاله در ژورنال‌های معتبر</p>
+                </div>
+            </div>
+            <div class="service-card">
+                <img src="/static/images/icons/book.png" alt="تالیف کتاب" class="service-icon">
+                <div class="service-info">
+                    <h3>تالیف و ترجمه کتاب</h3>
+                    <p>همراه با اخذ مجوزهای رسمی از وزارت ارشاد</p>
+                </div>
+            </div>
+            <div class="service-card">
+                <img src="/static/images/icons/research.png" alt="پژوهش علمی" class="service-icon">
+                <div class="service-info">
+                    <h3>پژوهش‌های علمی</h3>
+                    <p>انجام تحقیقات دانشگاهی و صنعتی با کیفیت عالی</p>
+                </div>
+            </div>
+            <div class="service-card">
+                <img src="/static/images/icons/translation.png" alt="ترجمه تخصصی" class="service-icon">
+                <div class="service-info">
+                    <h3>ترجمه تخصصی</h3>
+                    <p>ترجمه متون تخصصی با کیفیت و دقت بالا</p>
+                </div>
+            </div>
+            <div class="service-card">
+                <img src="/static/images/icons/consulting.png" alt="مشاوره علمی" class="service-icon">
+                <div class="service-info">
+                    <h3>مشاوره علمی</h3>
+                    <p>مشاوره تخصصی در تمام مراحل پژوهش و نگارش</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="platform">
+        <div class="platform-content">
+            <h2 class="platform-title">یادراه؛ همراهی مطمئن در مسیر پژوهش</h2>
+            <p class="platform-description">
+                یادراه با سال‌ها تجربه در زمینه مدیریت پروژه‌های علمی، پلتفرمی جامع برای پژوهشگران، دانشجویان و اساتید دانشگاه فراهم کرده است. این سامانه با ارائه خدمات تخصصی از مرحله ایده‌پردازی تا انتشار نتایج پژوهش، همراهی مطمئن برای موفقیت در پروژه‌های علمی شماست. با یادراه می‌توانید تمام مراحل پژوهش خود را به صورت حرفه‌ای مدیریت کنید و از مشاوره متخصصان هر حوزه بهره‌مند شوید.
+            </p>
+            
+            <div class="features">
+                <div class="feature">
+                    <img src="/static/images/icons/easy.png" alt="آسان" class="feature-icon">
+                    <h3>آسان</h3>
+                    <p>رابط کاربری ساده و intuitive که انجام پروژه‌های علمی را برای شما آسان می‌کند.</p>
+                </div>
+                <div class="feature">
+                    <img src="/static/images/icons/time.png" alt="کارآمد" class="feature-icon">
+                    <h3>کارآمد</h3>
+                    <p>ابزارهای مدیریت زمان و پیشرفت پروژه که به شما کمک می‌کند در زمان خود صرفه‌جویی کنید.</p>
+                </div>
+                <div class="feature">
+                    <img src="/static/images/icons/quality.png" alt="کیفیت" class="feature-icon">
+                    <h3>کیفیت</h3>
+                    <p>همکاری با متخصصان مجرب هر حوزه که تضمین‌کننده کیفیت بالای خروجی کار شماست.</p>
+                </div>
+            </div>
+        </div>
+        <div class="platform-image"></div>
+    </section>
+
+    <section class="advisor-section">
+        <h2 class="advisor-title">مشاوران علمی ما آماده کمک به شما هستند</h2>
+        <p class="advisor-subtitle">در کمتر از ۲۴ ساعت با مشاور تخصصی حوزه خود ارتباط بگیرید</p>
+        <button class="advisor-btn">درخواست مشاوره تخصصی</button>
+        
+        <div class="benefits">
+            <div class="benefit-card">
+                <img src="/static/images/icons/expert.png" alt="متخصصان مجرب" class="benefit-icon">
+                <div class="benefit-info">
+                    <h3>متخصصان مجرب</h3>
+                    <p>تیم ما شامل اساتید دانشگاه، پژوهشگران و مترجمان با سابقه درخشان در حوزه‌های تخصصی مختلف است.</p>
+                </div>
+            </div>
+            <div class="benefit-card">
+                <img src="/static/images/icons/support.png" alt="پشتیبانی دائمی" class="benefit-icon">
+                <div class="benefit-info">
+                    <h3>پشتیبانی دائمی</h3>
+                    <p>در تمام مراحل پروژه از مشاوره اولیه تا انتشار نتایج، پشتیبان‌های ما همراه شما خواهند بود.</p>
+                </div>
+            </div>
+            <div class="benefit-card">
+                <img src="/static/images/icons/guarantee.png" alt="تضمین کیفیت" class="benefit-icon">
+                <div class="benefit-info">
+                    <h3>تضمین کیفیت</h3>
+                    <p>تمامی خروجی‌ها قبل از تحویل توسط تیم کنترل کیفیت بررسی می‌شوند تا رضایت کامل شما جلب شود.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-links">
+            <a href="#">درباره یادراه</a>
+            <a href="#">بلاگ علمی</a>
+            <a href="#">شرایط و قوانین</a>
+            <a href="#">همکاری با ما</a>
+            <a href="#">سوالات متداول</a>
+            <a href="#">ثبت نام به عنوان مشاور</a>
+            <a href="#">تماس با ما</a>
+        </div>
+        
+        <div class="social-icons">
+            <div class="social-icon">T</div>
+            <div class="social-icon">I</div>
+            <div class="social-icon">Y</div>
+            <div class="social-icon">L</div>
+            <div class="social-icon">TG</div>
+        </div>
+        
+        <div class="certificates">
+            <img src="https://trustseal.enamad.ir/logo.aspx?id=30599&Code=uGobIf7GE1XUArlbdKa3" alt="نماد اعتماد" class="certificate">
+            <img src="https://logo.samandehi.ir/logo.aspx?id=37612&p=qftiyndtwlbqnbpdodrf" alt="لوگوی ساماندهی" class="certificate">
+        </div>
+        
+        <p style="margin-top: 20px; color: #666;">© ۱۴۰۳ - کلیه حقوق برای سامانه یادراه محفوظ است</p>
+    </footer>
+</body>
+</html>
