@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from Main.models import *
 from Main.forms import *
@@ -8,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from translate import Translator
 from habanero import Crossref
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 
 # Main View
 def home_page(request):
@@ -69,18 +71,22 @@ def dashboard(request):
 # Project View
 class ProjectListView(ListView):
     model = Project
-    template_name = 'project_list.html'
+    template_name = 'Projects/project/Project_list.html'
     context_object_name = 'projects'
 
 class ProjectDetailView(DetailView):
     model = Project
     template_name = 'project_detail.html'
 
-class ProjectCreateView(CreateView):
+class ProjectCreateView(LoginRequiredMixin, CreateView):
     model = Project
-    template_name = 'project_form.html'
-    fields = ['title', 'description', 'type', 'status', 'start_date', 'end_date', 'owner', 'keywords', 'tags']
+    form_class = ProjectForm
+    template_name = 'Projects/project/project_create.html'
     success_url = reverse_lazy('project_list')
+
+    def form_valid(self, form):
+        form.instance.owner = self.request.user
+        return super().form_valid(form)
 
 class ProjectUpdateView(UpdateView):
     model = Project
@@ -176,23 +182,6 @@ class ArticleDeleteView(DeleteView):
     success_url = reverse_lazy('article_list')
 
 
-def article_create_with_doi(request):
-    if request.method == 'POST':
-        form = DOIArticleForm(request.POST)
-        if form.is_valid():
-            try:
-                article = form.save(request)
-                messages.success(request, "مقاله با موفقیت از طریق DOI وارد شد!")
-                return redirect('article_detail', pk=article.pk)
-            except Exception as e:
-                messages.error(request, f"خطا در وارد کردن مقاله: {str(e)}")
-                return redirect('article_create_with_doi')
-    else:
-        form = DOIArticleForm()
-    
-    return render(request, 'Project/Article/article_create_with_doi.html', {'form': form})
-
-
 # Book View
 class BookListView(ListView):
     model = Book
@@ -250,7 +239,7 @@ class TranslatedBookDeleteView(DeleteView):
 
 class ResearchProjectListView(ListView):
     model = ResearchProject
-    template_name = 'Project/ResearchProject/ResearchProject_list.html'
+    template_name = 'Projects/ResearchProject/ResearchProject_list.html'
     context_object_name = 'research_projects'
 
     def get_queryset(self):
@@ -267,7 +256,7 @@ class ResearchProjectListView(ListView):
 
 class ResearchProjectDetailView(DetailView):
     model = ResearchProject
-    template_name = 'Project/ResearchProject/ResearchProject_detail.html'
+    template_name = 'Projects/ResearchProject/ResearchProject_detail.html'
     context_object_name = 'research_project'
 
     def get_object(self, queryset=None):
@@ -284,19 +273,19 @@ class ResearchProjectDetailView(DetailView):
 
 class ResearchProjectCreateView(CreateView):
     model = Thesis
-    template_name = 'Project/ResearchProject/ResearchProject_form.html'
+    template_name = 'Projects/ResearchProject/ResearchProject_form.html'
     # fields = ['project', 'student_name', 'university', 'department', 'degree', 'defense_date']
     success_url = reverse_lazy('thesis_list')
 
 class ResearchProjectUpdateView(UpdateView):
     model = Thesis
-    template_name = 'Project/ResearchProject/thesis_form.html'
+    template_name = 'Projects/ResearchProject/thesis_form.html'
     # fields = ['project', 'student_name', 'university', 'department', 'degree', 'defense_date']
     success_url = reverse_lazy('thesis_list')
 
 class ResearchProjectDeleteView(DeleteView):
     model = ResearchProject
-    template_name = 'Project/ResearchProject/ResearchProject_confirm_delete.html'
+    template_name = 'Projects/ResearchProject/ResearchProject_confirm_delete.html'
     success_url = reverse_lazy('ResearchProject_list')
 
 
@@ -355,6 +344,50 @@ class ReferenceDeleteView(DeleteView):
     model = Reference
     template_name = 'reference_confirm_delete.html'
     success_url = reverse_lazy('reference_list')
+
+
+def add_reference_with_doi(request, project_id):
+    if request.method == 'POST':
+        doi = request.POST.get('doi', '').strip()
+        
+        if not doi:
+            return JsonResponse({'error': 'DOI cannot be empty'}, status=400)
+        
+        try:
+            # دریافت اطلاعات از Crossref
+            cr = Crossref()
+            work = cr.works(ids=doi)
+            data = work['message']
+            
+            # ایجاد رفرنس جدید
+            reference = Reference.objects.create(
+                citation_key=f"doi_{doi}",
+                reference_type='article',
+                doi=doi,
+                # سایر فیلدها بر اساس داده‌های Crossref
+            )
+            
+            # ایجاد ارتباط بین رفرنس و پروژه
+            project = Project.objects.get(id=project_id)
+            Citation.objects.create(
+                project=project,
+                reference=reference,
+                citation_text=f"Automatically added from DOI: {doi}"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'citation_key': reference.citation_key,
+                'title': data.get('title', [''])[0],
+                'authors': ', '.join([author.get('given', '') + ' ' + author.get('family', '') 
+                                    for author in data.get('author', [])]),
+                'message': 'Reference added successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 # Citation Views
 class CitationListView(ListView):

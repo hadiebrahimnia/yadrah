@@ -1,29 +1,8 @@
 {% extends 'base/base.html' %}
 {% block content %}
 
-<!-- محتوای داشبورد -->
-<div class="row m-1 pb-4 mb-3">
-    <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 p-2">
-        <div class="page-header breadcrumb-header">
-            <div class="row align-items-end">
-                <div class="col-12">
-                    <div class="page-header-title text-left-rtl">
-                        <div class="d-inline">
-                            <h3 class="lite-text">داشبورد</h3>
-                            <span class="lite-text">گزارش ها و آمار</span>
-                        </div>
-                    </div>
-                </div>
-                
-            </div>
-        </div>
-    </div>
-</div>
-
-
+{% include "base/title.html" with title="داشبورد" subtitle="گزارش ها و آمار" button_text="پروژه جدید" button_link="/projects/create/" %}
 <div class="row mb-2">
-
-
     {% for project_type, projects in project_dict.items %}
         {% for project in projects %}
             <div class="col-xl-3 col-md-6 col-sm-6 p-2">
@@ -35,45 +14,10 @@
             </div>
         {% endfor %}
     {% endfor %}
-
-    
-
-
-    {% comment %} <div class="col-xl-3 col-md-6 col-sm-6 p-2">
-        <div class="box-card macro animate__animated animate__flipInY    "><i class="fab far fa-clock c-second" aria-hidden="true"></i>
-            <span>27</span>
-            <span>Visitors</span>
-            <p class="mt-1 mb-1">Your main list is growing</p>
-            <a class="btn c-second text-center">مشاهده</a>
-
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 col-sm-6 p-2">
-        <div class="box-card macro animate__animated animate__flipInY   "><i class="fab far fa-comments c-third" aria-hidden="true"></i>
-            <span>5</span>
-            <span>Messages</span>
-            <p class="mt-1 mb-1">Your main list is growing</p>
-            <a class="btn c-third text-center">مشاهده</a>
-
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 col-sm-6 p-2">
-        <div class="box-card macro animate__animated animate__flipInY   "><i class="fab far fa-gem c-forth" aria-hidden="true"></i>
-            <span>555,223</span>
-            <span>Mined</span>
-            <p class="mt-1 mb-1">Your main list is growing</p>
-            <a class="btn c-forth text-center">مشاهده</a>
-
-        </div>
-    </div> {% endcomment %}
 </div>
-
-
 {% endblock %}
-
 {% block scripts %}
-<!-- اسکریپت‌های مخصوص داشبورد -->
 <script>
-    // کدهای جاوااسکریپت مخصوص داشبورد
+    // Code
 </script>
 {% endblock %}

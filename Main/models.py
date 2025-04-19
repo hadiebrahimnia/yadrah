@@ -5,6 +5,7 @@ from django.db import models
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from habanero import Crossref
 from django.utils.functional import cached_property
 
 # User Model
@@ -600,7 +601,7 @@ class ArticleSection(models.Model):
         blank=True,
         verbose_name='Section Title'
     )
-    content = HTMLField(verbose_name='Content')
+    content = HTMLField(verbose_name='Content', blank=True)
     position = models.PositiveIntegerField(
         default=0,
         verbose_name='Position in Article'
@@ -762,7 +763,7 @@ class BookSection(models.Model):
         blank=True,
         verbose_name='Section Title'
     )
-    content = HTMLField(verbose_name='Content')
+    content = HTMLField(verbose_name='Content', blank=True)
     position = models.PositiveIntegerField(
         default=0,
         verbose_name='Position in Chapter'
@@ -826,7 +827,7 @@ class BookTable(models.Model):
         verbose_name='Chapter'
     )
     title = models.CharField(max_length=200, verbose_name='Table Title')
-    content = HTMLField(verbose_name='Table Content')
+    content = HTMLField(verbose_name='Table Content', blank=True)
     position = models.PositiveIntegerField(
         default=0,
         verbose_name='Position in Chapter'
@@ -1016,12 +1017,12 @@ class ResearchProposal(models.Model):
     sponsor = models.CharField(max_length=200, verbose_name='Sponsor', blank=True)
 
     # Content sections (using HTMLField for rich text)
-    problem_statement = HTMLField(verbose_name='Problem Statement')
-    research_importance = HTMLField(verbose_name='Research Importance')
-    literature_review = HTMLField(verbose_name='Literature Review')
-    research_objectives = HTMLField(verbose_name='Research Objectives')
-    research_methodology = HTMLField(verbose_name='Research Methodology')
-    expected_results = HTMLField(verbose_name='Expected Results')
+    problem_statement = HTMLField(verbose_name='Problem Statement', blank=True)
+    research_importance = HTMLField(verbose_name='Research Importance', blank=True)
+    literature_review = HTMLField(verbose_name='Literature Review', blank=True)
+    research_objectives = HTMLField(verbose_name='Research Objectives', blank=True)
+    research_methodology = HTMLField(verbose_name='Research Methodology', blank=True)
+    expected_results = HTMLField(verbose_name='Expected Results', blank=True)
     references_section = HTMLField(verbose_name='References', blank=True)
 
 
@@ -1088,7 +1089,7 @@ class ResearchProposalSection(models.Model):
         blank=True,
         verbose_name='Section Title'
     )
-    content = HTMLField(verbose_name='Content')
+    content = HTMLField(verbose_name='Content', blank=True)
     position = models.PositiveIntegerField(
         default=0,
         verbose_name='Position in Proposal'
@@ -1200,7 +1201,7 @@ class ResearchProjectSection(models.Model):
         blank=True,
         verbose_name='Section Title'
     )
-    content = HTMLField(verbose_name='Content')
+    content = HTMLField(verbose_name='Content', blank=True)
     position = models.PositiveIntegerField(
         default=0,
         verbose_name='Position in Project'
@@ -1350,7 +1351,7 @@ class ThesisSection(models.Model):
         blank=True,
         verbose_name='Section Title'
     )
-    content = HTMLField(verbose_name='Content')
+    content = HTMLField(verbose_name='Content', blank=True)
     position = models.PositiveIntegerField(
         default=0,
         verbose_name='Position in Thesis'
@@ -1505,9 +1506,55 @@ class Reference(models.Model):
         unique=True,
         verbose_name='Citation Key'
     )
+
+    doi = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        unique=True,
+        verbose_name='DOI'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @classmethod
+    def create_from_doi(cls, doi, project=None):
+        """
+        ایجاد یا بازیابی منبع بر اساس DOI
+        """
+        # بررسی وجود منبع با این DOI
+        existing_ref = cls.objects.filter(doi=doi).first()
+        if existing_ref:
+            if project:
+                # اگر پروژه مشخص شده، منبع را به آن اضافه کنید
+                Citation.objects.get_or_create(project=project, reference=existing_ref)
+            return existing_ref
+        
+        # اگر منبع وجود ندارد، از Crossref اطلاعات را دریافت کنید
+        cr = Crossref()
+        try:
+            work = cr.works(ids=doi)
+        except Exception as e:
+            raise ValueError(f"خطا در دریافت اطلاعات از Crossref: {str(e)}")
+        
+        data = work['message']
+        
+        # ایجاد منبع جدید
+        ref = cls(
+            citation_key=f"doi_{doi}",
+            reference_type='article',
+            doi=doi,
+            # سایر فیلدها بر اساس داده‌های Crossref
+        )
+        ref.save()
+        
+        # اگر پروژه مشخص شده، منبع را به آن اضافه کنید
+        if project:
+            Citation.objects.create(project=project, reference=ref)
+        
+        return ref
+    
     class Meta:
         verbose_name = 'Reference'
         verbose_name_plural = 'References'

@@ -23,8 +23,8 @@ urlpatterns = [
     path('articles/create/', views.ArticleCreateView.as_view(), name='article_create'),
     path('articles/<int:pk>/update/', views.ArticleUpdateView.as_view(), name='article_update'),
     path('articles/<int:pk>/delete/', views.ArticleDeleteView.as_view(), name='article_delete'),
-    path('create-with-doi/', views.article_create_with_doi, name='article_create_with_doi'),
-
+    path('references/add-with-doi/', views.add_reference_with_doi, name='add_reference_with_doi'),
+    
     # Books
     path('books/', views.BookListView.as_view(), name='book_list'),
     path('books/<int:pk>/', views.BookDetailView.as_view(), name='book_detail'),
