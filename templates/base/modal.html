@@ -1,0 +1,67 @@
+<div class="modal w-lg fade light blur" id="{{ modal_id }}" tabindex="-1" role="dialog" aria-labelledby="{{ modal_label }}" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+      <div class="modal-content card shade">
+          <div class="modal-header">
+              <h5 class="modal-title" id="{{ modal_label }}">{{ modal_title }}</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+              </button>
+          </div>
+          <div class="modal-body">
+              {{ modal_body|safe }}
+          </div>
+          <div class="modal-footer" style="direction: ltr;">
+              {% if modal_action_button %}
+                  <div class="c-grey text-center col-3">
+                      {% if modal_action_type == "button" %}
+                          <!-- Button Type -->
+                          <button type="submit" {% if modal_id %}id="{{ modal_id }}"{% endif %} class="btn outlined c-second o-second btn-block fnt-xxs">
+                              {{ modal_action_text }}
+                          </button>
+                      {% elif modal_action_type == "link" %}
+                          <!-- Link Type -->
+                          <a href="{{ modal_action_href }}" class="btn outlined c-second o-second btn-block fnt-xxs">
+                              {{ modal_action_text }}
+                          </a>
+                      {% endif %}
+                  </div>
+              {% endif %}
+          </div>
+      </div>
+  </div>
+</div>
+
+
+<!-- button -->
+<!--
+<div class="c-grey text-center col-3">
+  <button type="button" data-target="#" data-toggle="modal" class="btn outlined dashed c-second o-second btn-block fnt-xxs">X</button>
+</div>
+-->
+
+<!-- Submit -->
+<!--
+{% include "base/modal.html" with 
+    modal_id="exampleModal" 
+    modal_label="exampleModalLabel" 
+    modal_title="My Modal Title" 
+    modal_body="<form>...</form>" 
+    modal_action_button=True 
+    modal_action_text="ذخیره" 
+    modal_action_type="button" 
+%}
+-->
+
+<!-- Link -->
+<!--
+{% include "base/modal.html" with 
+    modal_id="exampleModal" 
+    modal_label="exampleModalLabel" 
+    modal_title="My Modal Title" 
+    modal_body="-" 
+    modal_action_button=True 
+    modal_action_text="بازگشت" 
+    modal_action_type="link" 
+    modal_action_href="/some-url/" 
+%}
+-->
