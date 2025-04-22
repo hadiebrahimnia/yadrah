@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
@@ -10,17 +10,39 @@ from translate import Translator
 from habanero import Crossref
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.contrib.auth import login, authenticate
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth import views as auth_views
+from django.views.decorators.http import require_POST
 
 # Main View
 def home_page(request):
-    return render(request, 'home/index.html', {
-    })
+    return render(request, 'home/index.html', {})
+
+def register_view(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect('/dashboard/')  # Redirect after registration
+    else:
+        form = CustomUserCreationForm()
+    return render(request, 'registration/register.html', {'form': form})
+
+def login_view(request):
+    return auth_views.LoginView.as_view(
+        template_name='registration/login.html',
+        authentication_form=CustomAuthenticationForm,
+        extra_context={
+            'register_url': reverse_lazy('register'),
+            'forgot_password_url': reverse_lazy('password_reset'),
+        }
+    )(request)
 
 def dashboard(request):
-    # گرفتن پروژه‌های کاربر
-    user_projects = request.user.projects.all()
+    user_projects = request.user.owned_projects.all()  # Get owned projects
 
-    # دیکشنری برای ذخیره پروژه‌ها بر اساس نوع
     project_dict = {
         'articles': [],
         'books': [],
@@ -30,43 +52,23 @@ def dashboard(request):
         'theses': [],
     }
 
-    # پر کردن دیکشنری با پروژه‌ها
     for project in user_projects:
-        if project.type == 'article_writing':
-            project_dict['articles'].append({
-                'title': project.title,
-                'type': project.get_type_display(),
-            })
-        elif project.type == 'book_writing':
-            project_dict['books'].append({
-                'title': project.title,
-                'type': project.get_type_display(),
-            })
-        elif project.type == 'book_translation':
-            project_dict['translated_books'].append({
-                'title': project.title,
-                'type': project.get_type_display(),
-            })
-        elif project.type == 'research_proposal':
-            project_dict['research_proposals'].append({
-                'title': project.title,
-                'type': project.get_type_display(),
-            })
-        elif project.type == 'research_project':
-            project_dict['research_projects'].append({
-                'title': project.title,
-                'type': project.get_type_display(),
-            })
-        elif project.type == 'thesis':
-            project_dict['theses'].append({
-                'title': project.title,
-                'type': project.get_type_display(),
-            })
+        if isinstance(project, Article):
+            project_dict['articles'].append(project)
+        elif isinstance(project, Book):
+            project_dict['books'].append(project)
+        elif isinstance(project, TranslatedBook):
+            project_dict['translated_books'].append(project)
+        elif isinstance(project, ResearchProposal):
+            project_dict['research_proposals'].append(project)
+        elif isinstance(project, ResearchProject):
+            project_dict['research_projects'].append(project)
+        elif isinstance(project, Thesis):
+            project_dict['theses'].append(project)
 
     return render(request, 'dashboard/dashboard.html', {
         'project_dict': project_dict,
     })
-
 
 # Project View
 class ProjectListView(ListView):
@@ -91,14 +93,13 @@ class ProjectCreateView(LoginRequiredMixin, CreateView):
 class ProjectUpdateView(UpdateView):
     model = Project
     template_name = 'project_form.html'
-    fields = ['title', 'description', 'type', 'status', 'start_date', 'end_date', 'owner', 'keywords', 'tags']
+    fields = ['title', 'description', 'type', 'status', 'start_date', 'end_date', 'keywords', 'tags']
     success_url = reverse_lazy('project_list')
 
 class ProjectDeleteView(DeleteView):
     model = Project
     template_name = 'project_confirm_delete.html'
     success_url = reverse_lazy('project_list')
-
 
 class TaskListView(ListView):
     model = Task
@@ -139,20 +140,19 @@ class ProjectCommentDetailView(DetailView):
 class ProjectCommentCreateView(CreateView):
     model = ProjectComment
     template_name = 'comment_form.html'
-    fields = ['project', 'author', 'comment_text']
+    fields = ['project', 'author', 'content']
     success_url = reverse_lazy('comment_list')
 
 class ProjectCommentUpdateView(UpdateView):
     model = ProjectComment
     template_name = 'comment_form.html'
-    fields = ['project', 'author', 'comment_text']
+    fields = ['project', 'author', 'content']
     success_url = reverse_lazy('comment_list')
 
 class ProjectCommentDeleteView(DeleteView):
     model = ProjectComment
     template_name = 'comment_confirm_delete.html'
     success_url = reverse_lazy('comment_list')
-
 
 # Article View
 class ArticleListView(ListView):
@@ -180,7 +180,6 @@ class ArticleDeleteView(DeleteView):
     model = Article
     template_name = 'article_confirm_delete.html'
     success_url = reverse_lazy('article_list')
-
 
 # Book View
 class BookListView(ListView):
@@ -236,58 +235,45 @@ class TranslatedBookDeleteView(DeleteView):
     template_name = 'translated_book_confirm_delete.html'
     success_url = reverse_lazy('translated_book_list')
 
-
+# Research Project Views
 class ResearchProjectListView(ListView):
     model = ResearchProject
     template_name = 'Projects/ResearchProject/ResearchProject_list.html'
     context_object_name = 'research_projects'
 
     def get_queryset(self):
-        # استفاده از select_related برای بارگذاری اطلاعات مرتبط
-        return ResearchProject.objects.select_related('project').all()
-
-    def get_context_data(self, **kwargs):
-        # فراخوانی متد والد
-        context = super().get_context_data(**kwargs)
-        # اضافه کردن لیست پروژه‌ها به context
-        context['research_projects_list'] = self.get_queryset()
-        return context
-
+        return ResearchProject.objects.select_related('owner').all()
 
 class ResearchProjectDetailView(DetailView):
     model = ResearchProject
     template_name = 'Projects/ResearchProject/ResearchProject_detail.html'
     context_object_name = 'research_project'
 
-    def get_object(self, queryset=None):
-        # بارگذاری شیء بر اساس شناسه
-        obj = super().get_object(queryset)
-        return obj
-    
     def get_context_data(self, **kwargs):
-        # فراخوانی متد والد
         context = super().get_context_data(**kwargs)
-        # اضافه کردن بخش‌های پروژه به context
-        context['sections'] = self.object.sections.all()  # بارگذاری بخش‌ها
+        context['sections'] = self.object.sections.all()
         return context
 
-class ResearchProjectCreateView(CreateView):
-    model = Thesis
-    template_name = 'Projects/ResearchProject/ResearchProject_form.html'
-    # fields = ['project', 'student_name', 'university', 'department', 'degree', 'defense_date']
-    success_url = reverse_lazy('thesis_list')
+class ResearchProjectCreateView(LoginRequiredMixin, CreateView):
+    model = ResearchProject
+    form_class = ResearchProjectForm
+    template_name = 'Projects/ResearchProject/ResearchProject_create.html'
+    success_url = reverse_lazy('research_project_list')
+
+    def form_valid(self, form):
+        form.instance.owner = self.request.user
+        return super().form_valid(form)
 
 class ResearchProjectUpdateView(UpdateView):
-    model = Thesis
-    template_name = 'Projects/ResearchProject/thesis_form.html'
-    # fields = ['project', 'student_name', 'university', 'department', 'degree', 'defense_date']
-    success_url = reverse_lazy('thesis_list')
+    model = ResearchProject
+    template_name = 'Projects/ResearchProject/ResearchProject_form.html'
+    fields = ['title', 'description', 'organization', 'budget', 'funding_source', 'grant_number', 'template']
+    success_url = reverse_lazy('research_project_list')
 
 class ResearchProjectDeleteView(DeleteView):
     model = ResearchProject
     template_name = 'Projects/ResearchProject/ResearchProject_confirm_delete.html'
-    success_url = reverse_lazy('ResearchProject_list')
-
+    success_url = reverse_lazy('research_project_list')
 
 # Thesis View
 class ThesisListView(ListView):
@@ -302,13 +288,13 @@ class ThesisDetailView(DetailView):
 class ThesisCreateView(CreateView):
     model = Thesis
     template_name = 'thesis_form.html'
-    fields = ['project', 'student_name', 'university', 'department', 'degree', 'defense_date']
+    fields = ['project', 'student_name', 'university', 'department', 'degree_type', 'defense_date']
     success_url = reverse_lazy('thesis_list')
 
 class ThesisUpdateView(UpdateView):
     model = Thesis
     template_name = 'thesis_form.html'
-    fields = ['project', 'student_name', 'university', 'department', 'degree', 'defense_date']
+    fields = ['project', 'student_name', 'university', 'department', 'degree_type', 'defense_date']
     success_url = reverse_lazy('thesis_list')
 
 class ThesisDeleteView(DeleteView):
@@ -316,109 +302,106 @@ class ThesisDeleteView(DeleteView):
     template_name = 'thesis_confirm_delete.html'
     success_url = reverse_lazy('thesis_list')
 
-
-
-# Reference Views
-class ReferenceListView(ListView):
-    model = Reference
-    template_name = 'reference_list.html'
-    context_object_name = 'references'
-
-class ReferenceDetailView(DetailView):
-    model = Reference
-    template_name = 'reference_detail.html'
-
-class ReferenceCreateView(CreateView):
-    model = Reference
-    template_name = 'reference_form.html'
-    fields = ['citation_key', 'reference_type', 'source_article', 'source_book', 'source_thesis']
-    success_url = reverse_lazy('reference_list')
-
-class ReferenceUpdateView(UpdateView):
-    model = Reference
-    template_name = 'reference_form.html'
-    fields = ['citation_key', 'reference_type', 'source_article', 'source_book', 'source_thesis']
-    success_url = reverse_lazy('reference_list')
-
-class ReferenceDeleteView(DeleteView):
-    model = Reference
-    template_name = 'reference_confirm_delete.html'
-    success_url = reverse_lazy('reference_list')
-
-
-def add_reference_with_doi(request, project_id):
-    if request.method == 'POST':
-        doi = request.POST.get('doi', '').strip()
+@require_POST
+def add_reference_with_doi(request, pk):
+    doi = request.POST.get('doi', '').strip()
+    
+    if not doi:
+        return JsonResponse({'error': 'لطفاً DOI را وارد نمایید'}, status=400)
+    
+    try:
+        project = get_object_or_404(Project, id=pk)
+        existing_reference = Reference.objects.filter(doi=doi).first()
         
-        if not doi:
-            return JsonResponse({'error': 'DOI cannot be empty'}, status=400)
-        
-        try:
-            # دریافت اطلاعات از Crossref
-            cr = Crossref()
-            work = cr.works(ids=doi)
-            data = work['message']
-            
-            # ایجاد رفرنس جدید
-            reference = Reference.objects.create(
-                citation_key=f"doi_{doi}",
-                reference_type='article',
-                doi=doi,
-                # سایر فیلدها بر اساس داده‌های Crossref
-            )
-            
-            # ایجاد ارتباط بین رفرنس و پروژه
-            project = Project.objects.get(id=project_id)
-            Citation.objects.create(
+        if existing_reference:
+            citation, created = Citation.objects.get_or_create(
                 project=project,
-                reference=reference,
-                citation_text=f"Automatically added from DOI: {doi}"
+                reference=existing_reference,
+                defaults={'citation_text': f"منبع موجود با DOI: {doi}"}
             )
+            
+            if not created:
+                return JsonResponse({
+                    'success': True,
+                    'error': 'این منبع قبلاً به پروژه اضافه شده بود',
+                    'citation_key': existing_reference.citation_key
+                })
             
             return JsonResponse({
                 'success': True,
-                'citation_key': reference.citation_key,
-                'title': data.get('title', [''])[0],
-                'authors': ', '.join([author.get('given', '') + ' ' + author.get('family', '') 
-                                    for author in data.get('author', [])]),
-                'message': 'Reference added successfully'
+                'error': 'منبع موجود با موفقیت به پروژه اضافه شد',
+                'citation_key': existing_reference.citation_key
             })
+        
+        cr = Crossref()
+        work = cr.works(ids=doi)
+        data = work['message']
+        
+        title = data.get('title', [''])[0]
+        if not title:
+            return JsonResponse({'error': 'مقاله با این DOI یافت نشد'}, status=404)
+        
+        authors = data.get('author', [])
+        journal = data.get('container-title', [''])[0]
+        published_date = data.get('published', {}).get('date-parts', [[None]])[0]
+        year = published_date[0] if published_date else None
+        
+        article = Article.objects.create(
+            title=title,
+            article_type='research',
+            abstract=data.get('abstract', ''),
+            journal=journal,
+            volume=data.get('volume', ''),
+            issue=data.get('issue', ''),
+            pages=data.get('page', ''),
+            doi=doi,
+            publish_date=f"{year}-01-01" if year else None,
+            status='published'
+        )
+        
+        for order, author_data in enumerate(authors, start=1):
+            if not (author_data.get('given') and author_data.get('family')):
+                continue
+                
+            author, _ = Author.objects.get_or_create(
+                first_name=author_data.get('given', ''),
+                last_name=author_data.get('family', ''),
+                defaults={
+                    'orcid_id': author_data.get('ORCID', ''),
+                    'affiliation': ', '.join(author_data.get('affiliation', [])) 
+                    if author_data.get('affiliation') else ''
+                }
+            )
             
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-    
-    return JsonResponse({'error': 'Invalid request method'}, status=400)
+            ArticleAuthorship.objects.create(
+                article=article,
+                author=author,
+                authorship_order=order,
+                is_corresponding=order == 1
+            )
+        
+        reference = Reference.objects.create(
+            citation_key=f"doi_{doi.replace('/', '_')}",
+            reference_type='article',
+            article=article,
+            doi=doi
+        )
 
-# Citation Views
-class CitationListView(ListView):
-    model = Citation
-    template_name = 'citation_list.html'
-    context_object_name = 'citations'
-
-class CitationDetailView(DetailView):
-    model = Citation
-    template_name = 'citation_detail.html'
-
-class CitationCreateView(CreateView):
-    model = Citation
-    template_name = 'citation_form.html'
-    fields = ['project', 'reference', 'citation_text', 'page_number', 'location']
-    success_url = reverse_lazy('citation_list')
-
-class CitationUpdateView(UpdateView):
-    model = Citation
-    template_name = 'citation_form.html'
-    fields = ['project', 'reference', 'citation_text', 'page_number', 'location']
-    success_url = reverse_lazy('citation_list')
-
-class CitationDeleteView(DeleteView):
-    model = Citation
-    template_name = 'citation_confirm_delete.html'
-    success_url = reverse_lazy('citation_list')
-
-
-
-
+        return JsonResponse({
+            'success': True,
+            'error': 'منبع جدید با موفقیت ایجاد و به پروژه اضافه شد',
+            'citation_key': reference.citation_key,
+            'title': title,
+            'authors': ', '.join(
+                f"{a.get('given', '')} {a.get('family', '')}" 
+                for a in authors if a.get('given') and a.get('family')
+            )
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': f'خطا در پردازش درخواست: {str(e)}'
+        }, status=500)
 
 def translate_text(request):
     if request.method == 'POST':

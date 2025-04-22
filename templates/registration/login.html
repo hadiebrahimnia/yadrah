@@ -1,0 +1,127 @@
+
+
+<div class="login-container" >
+    <div class="login-card">
+      <h2 class="login-title">ورود به حساب کاربری</h2>
+      
+      <form method="post" class="login-form">
+        {% csrf_token %}
+        {{ form }}
+        
+        <button type="submit" class="login-btn">ورود</button>
+        
+        <div class="auth-links">
+          <a href="{{ register_url }}" class="auth-link">حساب کاربری ندارید؟ ثبت‌نام کنید</a>
+          <a href="#" class="auth-link">رمز عبور را فراموش کرده‌اید؟</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Vazirmatn', sans-serif;
+      }
+      
+      .login-container {
+        direction:rtl;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 20px;
+      }
+      
+      .login-card {
+        background: white;
+        padding: 2.5rem;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 450px;
+        text-align: right;
+      }
+      
+      .login-title {
+        color: #333;
+        margin-bottom: 1.5rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+        text-align: center;
+      }
+      
+      .login-form {
+        margin-bottom: 1.5rem;
+      }
+      
+      /* استایل‌های فرم که از طریق CustomAuthenticationForm اعمال می‌شوند */
+      .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border 0.3s;
+        margin-bottom: 1.2rem;
+      }
+      
+      .form-control:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+      }
+      
+      .login-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.3s;
+        margin-top: 0.5rem;
+      }
+      
+      .login-btn:hover {
+        background-color: #3a7bc8;
+      }
+      
+      .auth-links {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        margin-top: 1.5rem;
+      }
+      
+      .auth-link {
+        color: #4a90e2;
+        text-decoration: none;
+        font-size: 0.9rem;
+        text-align: center;
+        transition: color 0.3s;
+      }
+      
+      .auth-link:hover {
+        color: #3a7bc8;
+        text-decoration: underline;
+      }
+      
+      /* استایل‌های خطا */
+      .errorlist {
+        list-style: none;
+        color: #e74c3c;
+        background-color: #fde8e8;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+</style>

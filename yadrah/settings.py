@@ -41,7 +41,10 @@ INSTALLED_APPS = [
     'tinymce',
     'Main',
     'crispy_forms',
-    'crispy_bootstrap5', 
+    'crispy_bootstrap5',    
+    'polymorphic',
+    'taggit',
+    'reversion',
     
 ]
 
@@ -157,3 +160,6 @@ TINYMCE_DEFAULT_CONFIG = {
     "branding": False,
     "resize": True,
 }
+
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'home'

@@ -1,0 +1,147 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <h2 class="auth-title">ثبت‌نام در سامانه</h2>
+    
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      
+      {% if form.errors %}
+        <div class="error-message">
+          {% for field in form %}
+            {% for error in field.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          {% endfor %}
+          {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+      
+      {{ form.as_p }}
+      
+      <button type="submit" class="auth-btn">ثبت‌نام</button>
+      
+      <div class="auth-links">
+        <p>قبلاً ثبت‌نام کرده‌اید؟ <a href="{% url 'login' %}">ورود به حساب کاربری</a></p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Vazirmatn', sans-serif;
+      }
+      .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 20px;
+      }
+      
+      .auth-card {
+        direction:rtl;
+        background: white;
+        padding: 2.5rem;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 500px;
+        text-align: right;
+      }
+      
+      .auth-title {
+        color: #333;
+        margin-bottom: 1.5rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+        text-align: center;
+      }
+      
+      .auth-form {
+        margin-bottom: 1.5rem;
+      }
+      
+      .auth-form p {
+        margin-bottom: 1rem;
+      }
+      
+      .auth-form label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #555;
+        font-size: 0.9rem;
+      }
+      
+      .auth-form input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border 0.3s;
+      }
+      
+      .auth-form input:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+      }
+      
+      .auth-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.3s;
+        margin-top: 1rem;
+      }
+      
+      .auth-btn:hover {
+        background-color: #3a7bc8;
+      }
+      
+      .auth-links {
+        margin-top: 1.5rem;
+        text-align: center;
+      }
+      
+      .auth-links a {
+        color: #4a90e2;
+        text-decoration: none;
+        transition: color 0.3s;
+      }
+      
+      .auth-links a:hover {
+        color: #3a7bc8;
+        text-decoration: underline;
+      }
+      
+      .error-message {
+        color: #e74c3c;
+        background-color: #fde8e8;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+      
+      /* استایل‌های خاص برای صفحه ثبت‌نام */
+      .auth-form .helptext {
+        font-size: 0.8rem;
+        color: #666;
+        display: block;
+        margin-top: 0.3rem;
+      }
+</style>

@@ -1,6 +1,7 @@
 from django.contrib import admin
 from Main.models import *
 from tinymce.widgets import TinyMCE
+from django.contrib.contenttypes.admin import GenericTabularInline
 
 # Inline برای مدل‌های وابسته به پروژه
 class ArticleInline(admin.StackedInline):
@@ -35,22 +36,27 @@ class ProjectCommentInline(admin.TabularInline):
     model = ProjectComment
     extra = 0
 
-class CitationInline(admin.TabularInline):
-    model = Citation
+class ReferenceInline(GenericTabularInline):
+    model = Reference
     extra = 0
+    ct_field = 'content_type'
+    ct_fk_field = 'object_id'
 
 class ArticleSectionInline(admin.StackedInline):
     model = ArticleSection
     extra = 0
+    formfield_overrides = {
+        models.TextField: {'widget': TinyMCE()},
+    }
 
 class ArticleTemplateSectionInline(admin.TabularInline):
     model = ArticleTemplate.sections.through
     extra = 0
 
-
 class ArticleAuthorshipInline(admin.TabularInline):
     model = ArticleAuthorship
     extra = 1
+    fields = ('author', 'is_corresponding', 'authorship_order', 'affiliation')
 
 # مدیریت پروفایل کاربر
 @admin.register(Profile)
@@ -75,7 +81,7 @@ class ProjectAdmin(admin.ModelAdmin):
     inlines = [
         ArticleInline, BookInline, TranslatedBookInline,
         ResearchProposalInline, ResearchProjectInline, ThesisInline,
-        TaskInline, ProjectCommentInline, CitationInline
+        TaskInline, ProjectCommentInline, ReferenceInline
     ]
     filter_horizontal = ('keywords', 'related_projects', 'tags')
 
@@ -85,8 +91,8 @@ class ArticleAdmin(admin.ModelAdmin):
     list_display = ('title', 'article_type', 'publish_date', 'is_published')
     list_filter = ('article_type', 'is_published')
     search_fields = ('title', 'doi')
-    inlines = [ArticleSectionInline,ArticleAuthorshipInline]
-    filter_horizontal = ('keywords', )
+    inlines = [ArticleSectionInline, ArticleAuthorshipInline]
+    filter_horizontal = ('keywords',)
 
     def get_methods_section(self, obj):
         try:
@@ -98,14 +104,15 @@ class ArticleAdmin(admin.ModelAdmin):
     get_methods_section.short_description = 'Research Methods'
     list_display = ['title', 'article_type', 'get_methods_section', 'is_published']
 
-
 # مدیریت بخش‌های مقاله
 @admin.register(ArticleSection)
 class ArticleSectionAdmin(admin.ModelAdmin):
     list_display = ('article', 'section_type', 'title', 'position')
     list_filter = ('section_type',)
     search_fields = ('article__title', 'title')
-    filter_horizontal = ('references',)
+    formfield_overrides = {
+        models.TextField: {'widget': TinyMCE()},
+    }
 
 # مدیریت قالب‌های مقاله
 @admin.register(ArticleTemplate)
@@ -162,48 +169,6 @@ class ThesisAdmin(admin.ModelAdmin):
     list_filter = ('defense_date',)
     search_fields = ('project__title', 'student_name')
 
-# مدیریت منابع استنادی
-@admin.register(Reference)
-class ReferenceAdmin(admin.ModelAdmin):
-    list_display = ('citation_key', 'reference_type', 'get_source_title')
-    list_filter = ('reference_type',)
-    search_fields = ('citation_key',)
-
-    def get_source_title(self, obj):
-        source = obj.get_source()
-        return source.title if source else "No Source"
-    get_source_title.short_description = 'Source Title'
-
-# مدیریت استنادات
-@admin.register(Citation)
-class CitationAdmin(admin.ModelAdmin):
-    list_display = ('project', 'reference', 'page_number', 'location')
-    search_fields = ('project__title', 'reference__citation_key')
-
-# مدیریت استنادات مقاله
-@admin.register(ArticleReference)
-class ArticleReferenceAdmin(admin.ModelAdmin):
-    list_display = ('article', 'reference', 'context')
-    search_fields = ('article__title', 'reference__citation_key')
-
-# مدیریت استنادات کتاب
-@admin.register(BookReference)
-class BookReferenceAdmin(admin.ModelAdmin):
-    list_display = ('book', 'reference', 'context')
-    search_fields = ('book__project__title', 'reference__citation_key')
-
-# مدیریت استنادات پایان‌نامه
-@admin.register(ThesisReference)
-class ThesisReferenceAdmin(admin.ModelAdmin):
-    list_display = ('thesis', 'reference', 'context')
-    search_fields = ('thesis__project__title', 'reference__citation_key')
-
-# مدیریت تگ‌های پروژه
-@admin.register(ProjectTag)
-class ProjectTagAdmin(admin.ModelAdmin):
-    list_display = ('name', 'color')
-    search_fields = ('name',)
-
 # مدیریت وظایف
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
@@ -217,3 +182,24 @@ class ProjectCommentAdmin(admin.ModelAdmin):
     list_display = ('project', 'author', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('project__title', 'author__username')
+
+# مدیریت مراجع
+@admin.register(Reference)
+class ReferenceAdmin(admin.ModelAdmin):
+    list_display = ('authors', 'title', 'publication_date', 'reference_type')
+    list_filter = ('reference_type', 'created_at')
+    search_fields = ('authors', 'title', 'doi')
+
+# مدیریت اعلان‌ها
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('user', 'message', 'notification_type', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'created_at')
+    search_fields = ('user__username', 'message')
+
+# مدیریت وب‌هُک‌ها
+@admin.register(Webhook)
+class WebhookAdmin(admin.ModelAdmin):
+    list_display = ('name', 'target_url', 'event_types', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('name', 'target_url')

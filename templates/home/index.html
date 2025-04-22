@@ -352,8 +352,12 @@
     <header class="header">
         <div class="header-container">
             <nav class="nav-menu">
-                <a href="#" class="nav-item">ورود/ ثبت نام </a>
-                <a href="/dashboard/" class="">داشبورد</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}" class="nav-item">داشبود</a>|
+                <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button type="submit" class="">خروج</button></form>
+                {% else %}
+                <a href="{% url 'login' %}" class="nav-item">ورود/ثبت نام</a>  
+                {% endif %}
             </nav>
             <img src="/static/images/logo/logoW.png" alt="logo" class="logo">
         </div>

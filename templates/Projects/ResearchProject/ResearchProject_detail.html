@@ -1,11 +1,10 @@
-{% extends 'base/base.html' %} {% block content %}
-
-{% include "base/title.html" with title=research_project.project.title subtitle=research_project.organization|add:"/"|add:research_project.supervisor button_text="ویرایش" button_link=research_project.get_absolute_url|add:"update/" %}
+{% extends 'base/base.html' %} 
+{% block content %} 
+{% include "base/title.html" with title=research_project.project.title subtitle=research_project.organization|add:"/"|add:research_project.supervisor button_text="ویرایش" button_link=research_project.get_absolute_url|add:"update/" %} 
 {% for section in sections %}
 <div class="row">
   <div
-    class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2"
-  >
+    class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
     <div class="row align-items-end">
       <div class="col-lg-12">
         <div class="page-header-title">
@@ -20,11 +19,10 @@
     </div>
   </div>
 </div>
-{% endfor %} 
+{% endfor %}
 <div class="row">
   <div
-    class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2"
-  >
+    class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
     <div class="row align-items-end">
       <div class="col-lg-12">
         <div class="page-header-title">
@@ -35,44 +33,81 @@
               </div>
               <div class="col-2 p-2">
                 <div class="c-grey text-center m-auto col-12">
-                  <button type="button" data-target="#NewReference" data-toggle="modal" class="btn outlined dashed c-second o-second btn-block fnt-xxs"> منبع جدید</button>
+                  <button
+                    type="button"
+                    data-target="#NewReference"
+                    data-toggle="modal"
+                    class="btn outlined dashed c-second o-second btn-block fnt-xxs">
+                    منبع جدید
+                  </button>
                 </div>
+              </div>
             </div>
-            </div>
-            
+
             <span class="lite-text">
-              <table id="Article_list_Table" class="display">            
+              <table id="Article_list_Table" class="display">
                 <thead>
-                    <tr class="text-center">
-                        <th class="">ردیف</th>
-                        <th class="">
-                            <input type="text" class="form-control filter-input-Article_list_Table " data-column="1" placeholder="عنوان">
-                        </th>
-                        <th class="">
-                            <input type="text" class="form-control filter-input-Article_list_Table" data-column="2" placeholder="نام">
-                        </th>
-                        <th class="">
-                            <input type="text" class="form-control filter-input-Article_list_Table" data-column="3" placeholder="دانشگاه">
-                        </th>
-                        <th class="">
-                            <input type="text" class="form-control filter-input-Article_list_Table" data-column="4" placeholder="استاد">
-                        </th>
-                        <th class="">ویرایش</th>
-                    </tr>
+                  <tr class="text-center">
+                    <th class="">ردیف</th>
+                    <th class="">
+                      <input
+                        type="text"
+                        class="form-control filter-input-Article_list_Table"
+                        data-column="1"
+                        placeholder="کلید استناد" />
+                    </th>
+                    <th class="">
+                      <input
+                        type="text"
+                        class="form-control filter-input-Article_list_Table"
+                        data-column="2"
+                        placeholder="عنوان" />
+                    </th>
+                    <th class="">
+                      <input
+                        type="text"
+                        class="form-control filter-input-Article_list_Table"
+                        data-column="3"
+                        placeholder="نوع" />
+                    </th>
+                    <th class="">
+                      <input
+                        type="text"
+                        class="form-control filter-input-Article_list_Table"
+                        data-column="4"
+                        placeholder="DOI" />
+                    </th>
+                    <th class="">ویرایش</th>
+                  </tr>
                 </thead>
                 <tbody>
-                    {% for project in research_projects_list %}
-                    <tr class="text-center">
-                        <td>{{ forloop.counter }}</td>
-                        <td>{{ project.project.title }}</td>
-                        <td>{{ project.title }}</td>
-                        <td>{{ project.organization }}</td>
-                        <td>{{ project.supervisor }}</td>
-                        <td>
-                            <a href="/ResearchProject/{{project.id}}" type="button" class="btn outlined c-second o-second btn-block fnt-xxs ">ویرایش<div class="ripple-container"></div></a>
-                        </td>
-                    </tr>
-                    {% endfor %}
+
+                  {% for reference in references %}
+                  <tr class="text-center">
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ reference.citation_key }}</td>
+                    <td>
+                      {% if reference.reference_type == 'article' %}
+                        {{ reference.article.title }}
+                      {% elif reference.reference_type == 'book' %}
+                        {{ reference.book.project.title }}
+                      {% elif reference.reference_type == 'thesis' %}
+                        {{ reference.thesis.project.title }}
+                      {% endif %}
+                    </td>
+                    <td>{{ reference.get_reference_type_display }}</td>
+                    <td>{{ reference.doi }}</td>
+                    <td>
+                      <a
+                        href="/ResearchProject/{{project.id}}"
+                        type="button"
+                        class="btn outlined c-second o-second btn-block fnt-xxs"
+                        >ویرایش
+                        <div class="ripple-container"></div
+                      ></a>
+                    </td>
+                  </tr>
+                  {% endfor %}
                 </tbody>
               </table>
             </span>
@@ -83,71 +118,60 @@
   </div>
 </div>
 
-{% include "base/modal.html" with modal_id="NewReference" modal_label="exampleModalLabel" modal_title="منبع جدید" modal_body="<div class='form-group bmd-form-group'> <label class='bmd-label-static'>DOI مقاله را وارد کنید</label> <input type='type' class='form-control' placeholder='DOI'> </div>" modal_action_button=True modal_action_text="ذخیره" modal_action_type="button" %}
-
-{% endblock %}
+{% include "base/modal.html" with modal_id="NewReference" modal_label="exampleModalLabel" modal_title="منبع جدید" modal_body="<div class=\"form-group bmd-form-group\"> <label class=\"bmd-label-static\">DOI مقاله را وارد کنید</label> <input type=\"type\" class=\"form-control\" placeholder=\"DOI\" id=\"doiInput\" /> </div>" modal_action_button=True modal_action_text="ذخیره" modal_action_type="button" %}
+{% endblock %} 
 {% block scripts %}
 <script>
-    $(document).ready(function() {
-        // اختصاص DataTable به متغیر table
-        var table = $('#Article_list_Table').DataTable({
-            "paging": false, // فعال کردن صفحه‌بندی
-            "searching": true, // فعال کردن جستجو
-            "ordering": false, // فعال کردن مرتب‌سازی
-            "info": false // نمایش اطلاعات صفحه
-        });
-        // افزودن رویداد فیلتر به inputها و selectها
-        $('.filter-input-Article_list_Table').on('keyup change', function() {
-            table.column($(this).data('column')).search(this.value).draw();
-        });
+  $(document).ready(function () {
+    var table = $("#Article_list_Table").DataTable({
+      paging: false,
+      searching: true,
+      ordering: false,
+      info: false,
+    });
+    
+    $(".filter-input-Article_list_Table").on("keyup change", function () {
+      table.column($(this).data("column")).search(this.value).draw();
     });
 
-    $(document).ready(function() {
-      $('#NewReference').click(function() {
-          const doi = $('#doiInput').val();
-          const projectId = {{ project.id }}; // یا از طریق data attribute دریافت کنید
-          
-          if (!doi) {
-              $('#doiResult').html('<div class="alert alert-danger">لطفا DOI را وارد کنید</div>');
-              return;
+    $('#NewReference').click(function() {
+      const doi = $('#doiInput').val().trim();
+      if (!doi) {
+        showAlert('لطفاً DOI را وارد نمایید', { type: 'danger', duration: 3000 });
+        return;
+      }
+
+      const projectId = {{ research_project.project.id }};
+      $.ajax({
+        url: `/references/add-with-doi/${projectId}/`,
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        data: {
+          'doi': doi
+        },
+        beforeSend: function() {
+          $('#doiResult').html('<div class="alert alert-info">در حال پردازش...</div>');
+          $('#NewReference').prop('disabled', true);
+        },
+        success: function(response) {
+          if (response.success) {
+            showAlert('عملیات با موفقیت انجام شد', { type: 'success', duration: 3000 });
+            setTimeout(function() { location.reload(); }, 3000);
+          } else {
+            showAlert(response.error || 'خطای نامشخص', { type: 'danger', duration: 3000 });
           }
-          
-          $.ajax({
-              url: '/projects/' + projectId + '/add-reference-with-doi/',
-              method: 'POST',
-              data: {
-                  'doi': doi,
-                  'csrfmiddlewaretoken': '{{ csrf_token }}'
-              },
-              beforeSend: function() {
-                  $('#doiResult').html('<div class="alert alert-info">در حال پردازش...</div>');
-                  $('#submitDoi').prop('disabled', true);
-              },
-              success: function(response) {
-                  if (response.success) {
-                      $('#doiResult').html(`
-                          <div class="alert alert-success">
-                              <strong>منبع با موفقیت اضافه شد!</strong><br>
-                              عنوان: ${response.title}<br>
-                              نویسندگان: ${response.authors}<br>
-                              کلید استناد: ${response.citation_key}
-                          </div>
-                      `);
-                      // رفرش کردن لیست منابع (اگر جدول دارید)
-                      // location.reload(); // یا به روز رسانی بخشی از صفحه
-                  } else {
-                      $('#doiResult').html(`<div class="alert alert-danger">${response.error}</div>`);
-                  }
-              },
-              error: function(xhr) {
-                  const error = xhr.responseJSON ? xhr.responseJSON.error : 'خطای سرور';
-                  $('#doiResult').html(`<div class="alert alert-danger">${error}</div>`);
-              },
-              complete: function() {
-                  $('#submitDoi').prop('disabled', false);
-              }
-          });
+        },
+        error: function(xhr) {
+          const error = xhr.responseJSON ? xhr.responseJSON.error : 'خطای سرور';
+          showAlert(error, { type: 'danger', duration: 3000 });
+        },
+        complete: function() {
+          $('#NewReference').prop('disabled', false);
+        }
       });
+    });
   });
 </script>
 {% endblock %}
