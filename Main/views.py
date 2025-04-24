@@ -71,35 +71,82 @@ def dashboard(request):
     })
 
 # Project View
-class ProjectListView(ListView):
+class ProjectListView(LoginRequiredMixin, ListView):
     model = Project
-    template_name = 'Projects/project/Project_list.html'
+    template_name = 'projects/project/project_list.html'
     context_object_name = 'projects'
+    paginate_by = 10
 
-class ProjectDetailView(DetailView):
-    model = Project
-    template_name = 'project_detail.html'
-
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(
+            Q(owner=self.request.user) | 
+            Q(collaborators=self.request.user)
+        ).distinct().order_by('-created_at')
+    
 class ProjectCreateView(LoginRequiredMixin, CreateView):
     model = Project
     form_class = ProjectForm
-    template_name = 'Projects/project/project_create.html'
+    template_name = 'projects/project/project_create.html'
     success_url = reverse_lazy('project_list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
 
     def form_valid(self, form):
         form.instance.owner = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, 'پروژه با موفقیت ایجاد شد')
+        return response
 
-class ProjectUpdateView(UpdateView):
+class ProjectDetailView(LoginRequiredMixin, DetailView):
     model = Project
-    template_name = 'project_form.html'
-    fields = ['title', 'description', 'type', 'status', 'start_date', 'end_date', 'keywords', 'tags']
+    template_name = 'projects/project/project_detail.html'
+    context_object_name = 'project'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(
+            Q(owner=self.request.user) | 
+            Q(collaborators=self.request.user) |
+            Q(visibility='public')
+        ).distinct()
+
+
+class ProjectUpdateView(LoginRequiredMixin, UpdateView):
+    model = Project
+    form_class = ProjectForm
+    template_name = 'projects/project/project_form.html'
     success_url = reverse_lazy('project_list')
 
-class ProjectDeleteView(DeleteView):
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    def get_queryset(self):
+        return super().get_queryset().filter(owner=self.request.user)
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, 'پروژه با موفقیت به‌روزرسانی شد')
+        return response
+
+class ProjectDeleteView(LoginRequiredMixin, DeleteView):
     model = Project
-    template_name = 'project_confirm_delete.html'
+    template_name = 'projects/project/project_confirm_delete.html'
     success_url = reverse_lazy('project_list')
+
+    def get_queryset(self):
+        return super().get_queryset().filter(owner=self.request.user)
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'پروژه با موفقیت حذف شد')
+        return super().delete(request, *args, **kwargs)
+
+# Task
 
 class TaskListView(ListView):
     model = Task
@@ -238,7 +285,7 @@ class TranslatedBookDeleteView(DeleteView):
 # Research Project Views
 class ResearchProjectListView(ListView):
     model = ResearchProject
-    template_name = 'Projects/ResearchProject/ResearchProject_list.html'
+    template_name = 'projects/ResearchProject/researchproject_list.html'
     context_object_name = 'research_projects'
 
     def get_queryset(self):
@@ -246,7 +293,7 @@ class ResearchProjectListView(ListView):
 
 class ResearchProjectDetailView(DetailView):
     model = ResearchProject
-    template_name = 'Projects/ResearchProject/ResearchProject_detail.html'
+    template_name = 'projects/researchproject/researchproject_detail.html'
     context_object_name = 'research_project'
 
     def get_context_data(self, **kwargs):
@@ -257,7 +304,7 @@ class ResearchProjectDetailView(DetailView):
 class ResearchProjectCreateView(LoginRequiredMixin, CreateView):
     model = ResearchProject
     form_class = ResearchProjectForm
-    template_name = 'Projects/ResearchProject/ResearchProject_create.html'
+    template_name = 'projects/researchproject/researchproject_create.html'
     success_url = reverse_lazy('research_project_list')
 
     def form_valid(self, form):
@@ -266,13 +313,13 @@ class ResearchProjectCreateView(LoginRequiredMixin, CreateView):
 
 class ResearchProjectUpdateView(UpdateView):
     model = ResearchProject
-    template_name = 'Projects/ResearchProject/ResearchProject_form.html'
+    template_name = 'projects/researchproject/researchproject_form.html'
     fields = ['title', 'description', 'organization', 'budget', 'funding_source', 'grant_number', 'template']
     success_url = reverse_lazy('research_project_list')
 
 class ResearchProjectDeleteView(DeleteView):
     model = ResearchProject
-    template_name = 'Projects/ResearchProject/ResearchProject_confirm_delete.html'
+    template_name = 'projects/researchproject/pesearchproject_confirm_delete.html'
     success_url = reverse_lazy('research_project_list')
 
 # Thesis View

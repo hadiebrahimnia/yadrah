@@ -577,7 +577,6 @@ p.side-comment {
 .card.shade {
   background: linear-gradient(180deg, white 70%, #efefef);
   border: none;
-  border-radius: 18px;
 }
 
 .card.flat {
@@ -2442,7 +2441,9 @@ body.rtl {
 }
 
 
-
+.card{
+  border-radius: 18px;
+}
 
 
 

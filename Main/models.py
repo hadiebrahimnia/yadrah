@@ -8,12 +8,12 @@ from django.utils.functional import cached_property
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.utils.text import slugify
-from taggit.managers import TaggableManager
 from polymorphic.models import PolymorphicModel
 import reversion
 from django.db.models import Q
 from django.urls import reverse
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 # Constants
 VISIBILITY_CHOICES = (
@@ -89,42 +89,13 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
 ## Core Models ##
 
 class Keyword(models.Model):
-    """
-    Enhanced Keyword model with slug field and hierarchical support
-    """
     term = models.CharField(max_length=100, verbose_name='Keyword', unique=True)
     slug = models.SlugField(max_length=110, unique=True, blank=True)
-    parent = models.ForeignKey(
-        'self',
-        null=True,
-        blank=True,
-        related_name='children',
-        on_delete=models.CASCADE
-    )
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
-
-    class Meta:
-        verbose_name = 'Keyword'
-        verbose_name_plural = 'Keywords'
-        ordering = ['term']
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.term)
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.term
-
-    def get_full_path(self):
-        path = [self.term]
-        current = self.parent
-        while current:
-            path.append(current.term)
-            current = current.parent
-        return ' > '.join(reversed(path))
-
+    
+    
 class Author(models.Model):
     """
     Enhanced Author model with additional academic fields
@@ -148,8 +119,6 @@ class Author(models.Model):
     google_scholar_id = models.CharField(max_length=50, blank=True, verbose_name='Google Scholar ID')
     
     # Metadata
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -232,7 +201,7 @@ class Project(PolymorphicModel):
         max_length=100,
         choices=PROJECT_STATUS,
         default='not_started',
-        verbose_name='Project Status'
+        verbose_name='Status'
     )
     progress = models.IntegerField(
         choices=PROGRESS_CHOICES,
@@ -245,15 +214,6 @@ class Project(PolymorphicModel):
     end_date = models.DateField(verbose_name='End Date', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    # Relationships
-    keywords = models.ManyToManyField(
-        Keyword,
-        related_name='projects',
-        blank=True,
-        verbose_name='Keywords'
-    )
-    tags = TaggableManager(blank=True)
 
     related_projects = models.ManyToManyField(
         'self',
@@ -455,6 +415,7 @@ class Article(Project):
     )
     subtitle = models.CharField(max_length=300, blank=True, verbose_name='Subtitle')
     abstract = models.TextField(blank=True, verbose_name='Abstract')
+    keywords = models.ManyToManyField(Keyword, blank=True, verbose_name='Keywords', related_name='articles')
     authors = models.ManyToManyField(
         Author,
         related_name='authored_articles',
@@ -463,7 +424,7 @@ class Article(Project):
     )
     
     # Publication Information
-    status = models.CharField(
+    aricale_status = models.CharField(
         max_length=50,
         choices=ARTICLE_STATUS,
         default='draft',
@@ -504,8 +465,6 @@ class Article(Project):
     # Timestamps
     submitted_date = models.DateField(null=True, blank=True, verbose_name='Submitted Date')
     accepted_date = models.DateField(null=True, blank=True, verbose_name='Accepted Date')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     # Template reference
     template = models.ForeignKey(
@@ -623,7 +582,6 @@ class ArticleSection(models.Model):
         # Common sections
         ('title', 'Title'),
         ('abstract', 'Abstract'),
-        ('keywords', 'Keywords'),
         ('introduction', 'Introduction'),
         
         # Research Method sections
@@ -844,14 +802,10 @@ class Book(Project):
         verbose_name='Copyright Year'
     )
     
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Book'
         verbose_name_plural = 'Books'
-        ordering = ['-created_at']
 
     def __str__(self):
         return f"Book: {self.title}"
@@ -945,7 +899,7 @@ class BookChapter(models.Model):
     title = models.CharField(max_length=200, verbose_name='Chapter Title')
     summary = models.TextField(blank=True, verbose_name='Chapter Summary')
     word_count = models.PositiveIntegerField(default=0, verbose_name='Word Count')
-    status = models.CharField(
+    book_status = models.CharField(
         max_length=20,
         choices=(
             ('draft', 'Draft'),
@@ -956,9 +910,6 @@ class BookChapter(models.Model):
         default='draft',
         verbose_name='Status'
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
     class Meta:
         verbose_name = 'Book Chapter'
         verbose_name_plural = 'Book Chapters'
@@ -1196,15 +1147,10 @@ class TranslatedBook(Project):
         default=0.0,
         verbose_name='Royalty Percentage'
     )
-    
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Translated Book'
         verbose_name_plural = 'Translated Books'
-        ordering = ['-created_at']
 
     def __str__(self):
         return f"Translated Book: {self.title}"
@@ -1339,7 +1285,7 @@ class ResearchProposal(Project):
             ('funded', 'Funded'),
         ),
         default='draft',
-        verbose_name='Submission Status'
+        verbose_name='Status'
     )
     
     # Template reference
@@ -1865,7 +1811,7 @@ class Thesis(Project):
         blank=True
     )
     abstract = models.TextField(verbose_name='Abstract', blank=True)
-    keywords = TaggableManager(blank=True, verbose_name='Keywords')
+    keywords = models.ManyToManyField(Keyword, blank=True, verbose_name='Keywords', related_name='theses')
     
     # Template reference
     template = models.ForeignKey(
@@ -1993,7 +1939,7 @@ class ThesisChapter(models.Model):
     title = models.CharField(max_length=200, verbose_name='Chapter Title')
     summary = models.TextField(blank=True, verbose_name='Chapter Summary')
     word_count = models.PositiveIntegerField(default=0, verbose_name='Word Count')
-    status = models.CharField(
+    thesis_status = models.CharField(
         max_length=20,
         choices=(
             ('draft', 'Draft'),
@@ -2193,10 +2139,6 @@ class Reference(models.Model):
         verbose_name='Notes'
     )
     
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
     class Meta:
         verbose_name = 'Reference'
         verbose_name_plural = 'References'

@@ -5,7 +5,10 @@ from django.shortcuts import redirect
 from datetime import date
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 
+
+User = get_user_model()
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta:
@@ -80,20 +83,53 @@ class ProjectForm(forms.ModelForm):
         model = Project
         fields = [
             'title', 'description', 'type', 'status', 'progress', 'visibility',
-            'start_date', 'end_date', 'keywords', 'tags', 'collaborators'
+            'start_date', 'end_date', 'collaborators', 'related_projects'
         ]
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'type': forms.Select(attrs={'class': 'form-control'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
-            'progress': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'max': 100}),
-            'visibility': forms.Select(attrs={'class': 'form-control'}),
-            'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'end_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'keywords': forms.SelectMultiple(attrs={'class': 'form-control'}),
-            'tags': forms.SelectMultiple(attrs={'class': 'form-control'}),
-            'collaborators': forms.SelectMultiple(attrs={'class': 'form-control'}),
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'عنوان پروژه را وارد کنید'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'توضیحات پروژه'
+            }),
+            'type': forms.Select(attrs={
+                'class': 'form-control select2',
+                'id': 'project-type'
+            }),
+            'status': forms.Select(attrs={
+                'class': 'form-control select2',
+                'id': 'project-status'
+            }),
+            'progress': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'max': 100,
+                'step': 5
+            }),
+            'visibility': forms.Select(attrs={
+                'class': 'form-control select2'
+            }),
+            'start_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'id': 'start-date'
+            }),
+            'end_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'id': 'end-date'
+            }),
+            'collaborators': forms.SelectMultiple(attrs={
+                'class': 'form-control select2-multiple',
+                'id': 'project-collaborators'
+            }),
+            'related_projects': forms.SelectMultiple(attrs={
+                'class': 'form-control select2-multiple',
+                'id': 'related-projects'
+            }),
         }
         labels = {
             'title': 'عنوان پروژه',
@@ -104,10 +140,32 @@ class ProjectForm(forms.ModelForm):
             'visibility': 'قابلیت دید',
             'start_date': 'تاریخ شروع',
             'end_date': 'تاریخ پایان',
-            'keywords': 'کلمات کلیدی',
-            'tags': 'برچسب‌ها',
             'collaborators': 'همکاران',
+            'related_projects': 'پروژه‌های مرتبط',
         }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # فیلتر همکاران - نمایش همه کاربران به جز خود کاربر
+        if user:
+            self.fields['collaborators'].queryset = User.objects.exclude(id=user.id)
+            self.fields['related_projects'].queryset = Project.objects.filter(
+                Q(owner=user) | Q(collaborators=user)
+            ).distinct().exclude(id=self.instance.id) if self.instance else Project.objects.filter(
+                Q(owner=user) | Q(collaborators=user)
+            ).distinct()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+
+        if start_date and end_date and start_date > end_date:
+            raise forms.ValidationError("تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد")
+
+        return cleaned_data
 
 
 class ResearchProjectForm(forms.ModelForm):
