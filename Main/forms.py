@@ -169,117 +169,129 @@ class ProjectForm(forms.ModelForm):
 
 
 class ResearchProjectForm(forms.ModelForm):
+    """
+    فرم یکپارچه برای ایجاد و ویرایش طرح پژوهشی
+    """
+    use_template = forms.BooleanField(
+        required=False,
+        initial=False,
+        label='استفاده از قالب',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        help_text='برای استفاده از ساختار از پیش تعریف شده'
+    )
+
     class Meta:
         model = ResearchProject
         fields = [
-            'organization', 'research_code', 'supervisor', 'research_team',
-            'budget', 'funding_source', 'grant_number', 'deliverables'
+            'project','organization', 'research_code',
+            'supervisor', 'research_team', 'budget', 'funding_source',
+            'grant_number', 'deliverables', 'research_project_status'
         ]
+        
         widgets = {
-            'organization': forms.TextInput(attrs={'class': 'form-control'}),
-            'research_code': forms.TextInput(attrs={'class': 'form-control'}),
-            'supervisor': forms.Select(attrs={'class': 'form-control'}),
-            'research_team': forms.SelectMultiple(attrs={'class': 'form-control'}),
-            'budget': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'funding_source': forms.TextInput(attrs={'class': 'form-control'}),
-            'grant_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'deliverables': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'project': forms.Select(attrs={
+                'class': 'form-control select2',
+                'data-placeholder': 'انتخاب پروژه'
+            }),
+            
+            'organization': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'نام سازمان یا دانشگاه'
+            }),
+            'research_code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'کد پژوهشی'
+            }),
+            'supervisor': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'نام سرپرست طرح'
+            }),
+            'research_team': forms.SelectMultiple(attrs={
+                'class': 'form-control select2-multiple',
+                'data-placeholder': 'انتخاب اعضای تیم'
+            }),
+            'budget': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'مبلغ به ریال'
+            }),
+            'funding_source': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'منبع تأمین مالی'
+            }),
+            'grant_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'شماره گرنت'
+            }),
+            'deliverables': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'خروجی‌های مورد انتظار'
+            }),
+            
         }
         labels = {
-            'organization': 'سازمان/دانشگاه',
+            'project': ' پروژه',
+            'organization': 'سازمان متولی',
             'research_code': 'کد پژوهشی',
-            'supervisor': 'سرپرست',
-            'research_team': 'تیم پژوهشی',
+            'supervisor': 'سرپرست طرح',
+            'research_team': 'اعضای تیم',
             'budget': 'بودجه (ریال)',
-            'funding_source': 'منبع تأمین بودجه',
-            'grant_number': 'شماره کمک مالی',
-            'deliverables': 'محصولات پروژه',
+            'funding_source': 'منبع مالی',
+            'grant_number': 'شماره گرنت',
+            'deliverables': 'خروجی‌ها',
+        }
+        help_texts = {
+            'research_code': 'کد یکتا اختصاص داده شده به طرح',
+            'grant_number': 'شماره‌ای که حامی مالی به طرح اختصاص داده است'
         }
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        self.edit_mode = kwargs.pop('edit_mode', False)
+        super().__init__(*args, **kwargs)
 
-class ArticleForm(forms.ModelForm):
-    class Meta:
-        model = Article
-        fields = [
-            'article_type', 'subtitle', 'abstract', 'authors', 'status',
-            'journal', 'volume', 'issue', 'pages', 'doi', 'is_published',
-            'publish_date', 'manuscript', 'supplementary_materials', 'template'
-        ]
-        widgets = {
-            'article_type': forms.Select(attrs={'class': 'form-control'}),
-            'subtitle': forms.TextInput(attrs={'class': 'form-control'}),
-            'abstract': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'authors': forms.SelectMultiple(attrs={'class': 'form-control'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
-            'journal': forms.TextInput(attrs={'class': 'form-control'}),
-            'volume': forms.TextInput(attrs={'class': 'form-control'}),
-            'issue': forms.TextInput(attrs={'class': 'form-control'}),
-            'pages': forms.TextInput(attrs={'class': 'form-control'}),
-            'doi': forms.TextInput(attrs={'class': 'form-control'}),
-            'is_published': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'publish_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'manuscript': forms.FileInput(attrs={'class': 'form-control'}),
-            'supplementary_materials': forms.FileInput(attrs={'class': 'form-control'}),
-            'template': forms.Select(attrs={'class': 'form-control'}),
-        }
-        labels = {
-            'article_type': 'نوع مقاله',
-            'subtitle': 'زیرعنوان',
-            'abstract': 'چکیده',
-            'authors': 'نویسندگان',
-            'status': 'وضعیت',
-            'journal': 'ژورنال/کنفرانس',
-            'volume': 'جلد',
-            'issue': 'شماره',
-            'pages': 'صفحات',
-            'doi': 'DOI',
-            'is_published': 'منتشر شده؟',
-            'publish_date': 'تاریخ انتشار',
-            'manuscript': 'فایل مقاله',
-            'supplementary_materials': 'مواد تکمیلی',
-            'template': 'قالب مقاله',
-        }
+        # تنظیمات خاص برای حالت ویرایش
+        if self.edit_mode:
+            if self.instance.pk and self.instance.research_project_status != 'draft':
+                for field in ['title', 'organization', 'research_code']:
+                    self.fields[field].disabled = True
 
+            # در حالت ویرایش، فیلد قالب را فقط اگر طرح از قالب استفاده نکرده باشد نمایش می‌دهیم
+            if not self.instance.template:
+                self.fields['use_template'].initial = False
+                self.fields['template'] = forms.ModelChoiceField(
+                    queryset=ResearchProjectTemplate.objects.all(),
+                    widget=forms.Select(attrs={'class': 'form-control'}),
+                    label='قالب طرح',
+                    required=False
+                )
+            else:
+                self.fields['use_template'].widget = forms.HiddenInput()
+        else:
+            # در حالت ایجاد، فیلد قالب را به صورت مشروط نمایش می‌دهیم
+            self.fields['template'] = forms.ModelChoiceField(
+                queryset=ResearchProjectTemplate.objects.all(),
+                widget=forms.Select(attrs={'class': 'form-control'}),
+                label='قالب طرح',
+                required=False
+            )
+            self.fields['research_project_status'].initial = 'draft'
+            self.fields['research_project_status'].widget = forms.HiddenInput()
 
-class BookForm(forms.ModelForm):
-    class Meta:
-        model = Book
-        fields = [
-            'publisher', 'isbn', 'isbn_13', 'page_count', 'edition', 'is_published',
-            'cover_image', 'preface', 'introduction', 'conclusion', 'bibliography',
-            'index', 'royalty_percentage', 'copyright_holder', 'copyright_year'
-        ]
-        widgets = {
-            'publisher': forms.TextInput(attrs={'class': 'form-control'}),
-            'isbn': forms.TextInput(attrs={'class': 'form-control'}),
-            'isbn_13': forms.TextInput(attrs={'class': 'form-control'}),
-            'page_count': forms.NumberInput(attrs={'class': 'form-control'}),
-            'edition': forms.NumberInput(attrs={'class': 'form-control'}),
-            'is_published': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'cover_image': forms.FileInput(attrs={'class': 'form-control'}),
-            'preface': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'introduction': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'conclusion': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'bibliography': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'index': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'royalty_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'copyright_holder': forms.TextInput(attrs={'class': 'form-control'}),
-            'copyright_year': forms.NumberInput(attrs={'class': 'form-control'}),
-        }
-        labels = {
-            'publisher': 'ناشر',
-            'isbn': 'ISBN',
-            'isbn_13': 'ISBN-13',
-            'page_count': 'تعداد صفحات',
-            'edition': 'ویرایش',
-            'is_published': 'منتشر شده؟',
-            'cover_image': 'تصویر جلد',
-            'preface': 'پیشگفتار',
-            'introduction': 'مقدمه',
-            'conclusion': 'نتیجه‌گیری',
-            'bibliography': 'فهرست منابع',
-            'index': 'شاخص',
-            'royalty_percentage': 'درصد حق امتیاز',
-            'copyright_holder': 'دارنده حق چاپ',
-            'copyright_year': 'سال حق چاپ',
-        }
+        # فیلتر کردن اعضای تیم
+        self.fields['research_team'].queryset = Author.objects.filter(user__is_active=True)
+
+    def clean_budget(self):
+        budget = self.cleaned_data.get('budget')
+        if budget and budget < 0:
+            raise forms.ValidationError("بودجه نمی‌تواند مقدار منفی داشته باشد.")
+        return budget
+
+    def clean(self):
+        cleaned_data = super().clean()
+        use_template = cleaned_data.get('use_template')
+        
+        if use_template and not cleaned_data.get('template'):
+            self.add_error('template', 'در صورت انتخاب گزینه استفاده از قالب، باید یک قالب مشخص شود.')
+        
+        return cleaned_data

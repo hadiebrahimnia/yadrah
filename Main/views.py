@@ -41,8 +41,13 @@ def login_view(request):
     )(request)
 
 def dashboard(request):
-    user_projects = request.user.owned_projects.all()  # Get owned projects
+    """
+    Display the user's dashboard with categorized projects.
+    """
+    # Get all owned projects of the current user
+    user_projects = request.user.owned_projects.all()
 
+    # Define a dictionary to categorize projects based on their type
     project_dict = {
         'articles': [],
         'books': [],
@@ -52,20 +57,25 @@ def dashboard(request):
         'theses': [],
     }
 
-    for project in user_projects:
-        if isinstance(project, Article):
-            project_dict['articles'].append(project)
-        elif isinstance(project, Book):
-            project_dict['books'].append(project)
-        elif isinstance(project, TranslatedBook):
-            project_dict['translated_books'].append(project)
-        elif isinstance(project, ResearchProposal):
-            project_dict['research_proposals'].append(project)
-        elif isinstance(project, ResearchProject):
-            project_dict['research_projects'].append(project)
-        elif isinstance(project, Thesis):
-            project_dict['theses'].append(project)
+    # Map project types to dictionary keys for easier categorization
+    type_to_key = {
+        'article_writing': 'articles',
+        'book_writing': 'books',
+        'book_translation': 'translated_books',
+        'research_proposal': 'research_proposals',
+        'research_project': 'research_projects',
+        'thesis': 'theses',
+    }
 
+    # Categorize projects based on their type
+    for project in user_projects:
+        key = type_to_key.get(project.type)  # Get the corresponding key from the type
+        if key and hasattr(project, 'researchproject') and project.researchproject.exists():
+            project_dict[key].append(project.researchproject.first())
+        elif key:
+            project_dict[key].append(project)
+
+    # Pass the categorized projects to the template
     return render(request, 'dashboard/dashboard.html', {
         'project_dict': project_dict,
     })
@@ -229,58 +239,58 @@ class ArticleDeleteView(DeleteView):
     success_url = reverse_lazy('article_list')
 
 # Book View
-class BookListView(ListView):
-    model = Book
-    template_name = 'book_list.html'
-    context_object_name = 'books'
+# class BookListView(ListView):
+#     model = Book
+#     template_name = 'book_list.html'
+#     context_object_name = 'books'
 
-class BookDetailView(DetailView):
-    model = Book
-    template_name = 'book_detail.html'
+# class BookDetailView(DetailView):
+#     model = Book
+#     template_name = 'book_detail.html'
 
-class BookCreateView(CreateView):
-    model = Book
-    template_name = 'book_form.html'
-    fields = ['project', 'publisher', 'isbn', 'page_count', 'edition', 'preface', 'introduction', 'conclusion', 'bibliography', 'index', 'is_published']
-    success_url = reverse_lazy('book_list')
+# class BookCreateView(CreateView):
+#     model = Book
+#     template_name = 'book_form.html'
+#     fields = ['project', 'publisher', 'isbn', 'page_count', 'edition', 'preface', 'introduction', 'conclusion', 'bibliography', 'index', 'is_published']
+#     success_url = reverse_lazy('book_list')
 
-class BookUpdateView(UpdateView):
-    model = Book
-    template_name = 'book_form.html'
-    fields = ['project', 'publisher', 'isbn', 'page_count', 'edition', 'preface', 'introduction', 'conclusion', 'bibliography', 'index', 'is_published']
-    success_url = reverse_lazy('book_list')
+# class BookUpdateView(UpdateView):
+#     model = Book
+#     template_name = 'book_form.html'
+#     fields = ['project', 'publisher', 'isbn', 'page_count', 'edition', 'preface', 'introduction', 'conclusion', 'bibliography', 'index', 'is_published']
+#     success_url = reverse_lazy('book_list')
 
-class BookDeleteView(DeleteView):
-    model = Book
-    template_name = 'book_confirm_delete.html'
-    success_url = reverse_lazy('book_list')
+# class BookDeleteView(DeleteView):
+#     model = Book
+#     template_name = 'book_confirm_delete.html'
+#     success_url = reverse_lazy('book_list')
 
-# TranslatedBook View
-class TranslatedBookListView(ListView):
-    model = TranslatedBook
-    template_name = 'translated_book_list.html'
-    context_object_name = 'translated_books'
+# # TranslatedBook View
+# class TranslatedBookListView(ListView):
+#     model = TranslatedBook
+#     template_name = 'translated_book_list.html'
+#     context_object_name = 'translated_books'
 
-class TranslatedBookDetailView(DetailView):
-    model = TranslatedBook
-    template_name = 'translated_book_detail.html'
+# class TranslatedBookDetailView(DetailView):
+#     model = TranslatedBook
+#     template_name = 'translated_book_detail.html'
 
-class TranslatedBookCreateView(CreateView):
-    model = TranslatedBook
-    template_name = 'translated_book_form.html'
-    fields = ['project', 'original_title', 'original_language', 'translator', 'publisher', 'isbn', 'page_count', 'is_published']
-    success_url = reverse_lazy('translated_book_list')
+# class TranslatedBookCreateView(CreateView):
+#     model = TranslatedBook
+#     template_name = 'translated_book_form.html'
+#     fields = ['project', 'original_title', 'original_language', 'translator', 'publisher', 'isbn', 'page_count', 'is_published']
+#     success_url = reverse_lazy('translated_book_list')
 
-class TranslatedBookUpdateView(UpdateView):
-    model = TranslatedBook
-    template_name = 'translated_book_form.html'
-    fields = ['project', 'original_title', 'original_language', 'translator', 'publisher', 'isbn', 'page_count', 'is_published']
-    success_url = reverse_lazy('translated_book_list')
+# class TranslatedBookUpdateView(UpdateView):
+#     model = TranslatedBook
+#     template_name = 'translated_book_form.html'
+#     fields = ['project', 'original_title', 'original_language', 'translator', 'publisher', 'isbn', 'page_count', 'is_published']
+#     success_url = reverse_lazy('translated_book_list')
 
-class TranslatedBookDeleteView(DeleteView):
-    model = TranslatedBook
-    template_name = 'translated_book_confirm_delete.html'
-    success_url = reverse_lazy('translated_book_list')
+# class TranslatedBookDeleteView(DeleteView):
+#     model = TranslatedBook
+#     template_name = 'translated_book_confirm_delete.html'
+#     success_url = reverse_lazy('translated_book_list')
 
 # Research Project Views
 class ResearchProjectListView(ListView):
@@ -289,7 +299,7 @@ class ResearchProjectListView(ListView):
     context_object_name = 'research_projects'
 
     def get_queryset(self):
-        return ResearchProject.objects.select_related('owner').all()
+        return ResearchProject.objects.select_related('project__owner').all()
 
 class ResearchProjectDetailView(DetailView):
     model = ResearchProject
@@ -304,50 +314,100 @@ class ResearchProjectDetailView(DetailView):
 class ResearchProjectCreateView(LoginRequiredMixin, CreateView):
     model = ResearchProject
     form_class = ResearchProjectForm
-    template_name = 'projects/researchproject/researchproject_create.html'
+    template_name = 'projects/researchproject/researchproject_create_update.html'
     success_url = reverse_lazy('research_project_list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        kwargs['edit_mode'] = False
+        return kwargs
 
     def form_valid(self, form):
-        form.instance.owner = self.request.user
-        return super().form_valid(form)
+        # دریافت پروژه انتخاب‌شده از فرم
+        selected_project = form.cleaned_data.get('project')
+        
+        if not selected_project:
+            # اگر پروژه‌ای انتخاب نشده باشد، خطایی نمایش دهید
+            form.add_error('project', 'پروژه‌ای انتخاب نشده است.')
+            return self.form_invalid(form)
+        
+        # طرح پژوهشی را به پروژه انتخاب‌شده متصل کنید
+        form.instance.project = selected_project
+        
+        # ذخیره طرح پژوهشی
+        response = super().form_valid(form)
+        
+        # اگر از قالب استفاده شود، ساختار قالب را اعمال کنید
+        if form.cleaned_data.get('use_template') and form.cleaned_data.get('template'):
+            self.object.create_from_template(form.cleaned_data['template'].id)
+        
+        # پیام موفقیت
+        messages.success(self.request, 'طرح پژوهشی جدید با موفقیت ایجاد شد.')
+        return response
 
-class ResearchProjectUpdateView(UpdateView):
+
+class ResearchProjectUpdateView(LoginRequiredMixin, UpdateView):
     model = ResearchProject
-    template_name = 'projects/researchproject/researchproject_form.html'
-    fields = ['title', 'description', 'organization', 'budget', 'funding_source', 'grant_number', 'template']
-    success_url = reverse_lazy('research_project_list')
+    form_class = ResearchProjectForm
+    template_name = 'projects/researchproject/researchproject_create_update.html'
+    context_object_name = 'project'
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        kwargs['edit_mode'] = True
+        return kwargs
+
+    def get_success_url(self):
+        return reverse('research_project_detail', kwargs={'pk': self.object.pk})
+
+    def get_queryset(self):
+        # تغییر این قسمت برای فیلتر کردن بر اساس project__owner به جای owner
+        return ResearchProject.objects.filter(project__owner=self.request.user)
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        
+        if (not self.object.template and 
+            form.cleaned_data.get('use_template') and 
+            form.cleaned_data.get('template')):
+            self.object.create_from_template(form.cleaned_data['template'].id)
+            
+        messages.success(self.request, 'طرح پژوهشی با موفقیت به‌روزرسانی شد.')
+        return response
+    
 class ResearchProjectDeleteView(DeleteView):
     model = ResearchProject
     template_name = 'projects/researchproject/pesearchproject_confirm_delete.html'
     success_url = reverse_lazy('research_project_list')
 
 # Thesis View
-class ThesisListView(ListView):
-    model = Thesis
-    template_name = 'thesis_list.html'
-    context_object_name = 'theses'
+# class ThesisListView(ListView):
+#     model = Thesis
+#     template_name = 'thesis_list.html'
+#     context_object_name = 'theses'
 
-class ThesisDetailView(DetailView):
-    model = Thesis
-    template_name = 'thesis_detail.html'
+# class ThesisDetailView(DetailView):
+#     model = Thesis
+#     template_name = 'thesis_detail.html'
 
-class ThesisCreateView(CreateView):
-    model = Thesis
-    template_name = 'thesis_form.html'
-    fields = ['project', 'student_name', 'university', 'department', 'degree_type', 'defense_date']
-    success_url = reverse_lazy('thesis_list')
+# class ThesisCreateView(CreateView):
+#     model = Thesis
+#     template_name = 'thesis_form.html'
+#     fields = ['project', 'student_name', 'university', 'department', 'degree_type', 'defense_date']
+#     success_url = reverse_lazy('thesis_list')
 
-class ThesisUpdateView(UpdateView):
-    model = Thesis
-    template_name = 'thesis_form.html'
-    fields = ['project', 'student_name', 'university', 'department', 'degree_type', 'defense_date']
-    success_url = reverse_lazy('thesis_list')
+# class ThesisUpdateView(UpdateView):
+#     model = Thesis
+#     template_name = 'thesis_form.html'
+#     fields = ['project', 'student_name', 'university', 'department', 'degree_type', 'defense_date']
+#     success_url = reverse_lazy('thesis_list')
 
-class ThesisDeleteView(DeleteView):
-    model = Thesis
-    template_name = 'thesis_confirm_delete.html'
-    success_url = reverse_lazy('thesis_list')
+# class ThesisDeleteView(DeleteView):
+#     model = Thesis
+#     template_name = 'thesis_confirm_delete.html'
+#     success_url = reverse_lazy('thesis_list')
 
 @require_POST
 def add_reference_with_doi(request, pk):

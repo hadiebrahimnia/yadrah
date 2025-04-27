@@ -7,25 +7,25 @@ class ArticleInline(admin.StackedInline):
     model = Article
     extra = 0
 
-class BookInline(admin.StackedInline):
-    model = Book
-    extra = 0
+# class BookInline(admin.StackedInline):
+#     model = Book
+#     extra = 0
 
-class TranslatedBookInline(admin.StackedInline):
-    model = TranslatedBook
-    extra = 0
+# class TranslatedBookInline(admin.StackedInline):
+#     model = TranslatedBook
+#     extra = 0
 
-class ResearchProposalInline(admin.StackedInline):
-    model = ResearchProposal
-    extra = 0
+# class ResearchProposalInline(admin.StackedInline):
+#     model = ResearchProposal
+#     extra = 0
 
 class ResearchProjectInline(admin.StackedInline):
     model = ResearchProject
     extra = 0
 
-class ThesisInline(admin.StackedInline):
-    model = Thesis
-    extra = 0
+# class ThesisInline(admin.StackedInline):
+#     model = Thesis
+#     extra = 0
 
 class TaskInline(admin.TabularInline):
     model = Task
@@ -75,16 +75,22 @@ class ProjectAdmin(admin.ModelAdmin):
     list_filter = ('type', 'status', 'created_at')
     search_fields = ('title', 'owner__username')
     inlines = [
-        ArticleInline, BookInline, TranslatedBookInline,
-        ResearchProposalInline, ResearchProjectInline, ThesisInline,
-        TaskInline, ProjectCommentInline, ReferenceInline
+        ArticleInline, 
+        # BookInline, 
+        # TranslatedBookInline,
+        # ResearchProposalInline, 
+        ResearchProjectInline, 
+        # ThesisInline,
+        TaskInline, 
+        ProjectCommentInline,
+        ReferenceInline
     ]
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ('title', 'article_type', 'get_methods_section', 'is_published')
+    list_display = ('project', 'article_type', 'get_methods_section', 'is_published')
     list_filter = ('article_type', 'is_published')
-    search_fields = ('title', 'doi')
+    search_fields = ('project', 'doi')
     inlines = [ArticleSectionInline, ArticleAuthorshipInline]
     
     def get_methods_section(self, obj):
@@ -118,17 +124,17 @@ class ArticleTemplateSectionAdmin(admin.ModelAdmin):
     list_filter = ('required', 'section_type')
     search_fields = ('title', 'description')
 
-@admin.register(Book)
-class BookAdmin(admin.ModelAdmin):
-    list_display = ('title', 'publisher', 'edition', 'is_published')
-    list_filter = ('is_published',)
-    search_fields = ('title', 'publisher')
+# @admin.register(Book)
+# class BookAdmin(admin.ModelAdmin):
+#     list_display = ('title', 'publisher', 'edition', 'is_published')
+#     list_filter = ('is_published',)
+#     search_fields = ('title', 'publisher')
 
-@admin.register(TranslatedBook)
-class TranslatedBookAdmin(admin.ModelAdmin):
-    list_display = ('title', 'original_title', 'original_language', 'is_published')
-    list_filter = ('is_published',)
-    search_fields = ('title', 'original_title')
+# @admin.register(TranslatedBook)
+# class TranslatedBookAdmin(admin.ModelAdmin):
+#     list_display = ('title', 'original_title', 'original_language', 'is_published')
+#     list_filter = ('is_published',)
+#     search_fields = ('title', 'original_title')
 
 class ResearchProjectSectionInline(admin.StackedInline):
     model = ResearchProjectSection
@@ -136,21 +142,21 @@ class ResearchProjectSectionInline(admin.StackedInline):
 
 @admin.register(ResearchProject)
 class ResearchProjectAdmin(admin.ModelAdmin):
-    list_display = ('title', 'organization', 'supervisor', 'research_code')
-    search_fields = ('title', 'organization', 'supervisor__last_name')
+    list_display = ('project', 'organization', 'supervisor', 'research_code')
+    search_fields = ('project', 'organization', 'supervisor__last_name')
     inlines = [ResearchProjectSectionInline]
 
-@admin.register(ResearchProposal)
-class ResearchProposalAdmin(admin.ModelAdmin):
-    list_display = ('title', 'name_fa', 'budget', 'duration_months')
-    list_filter = ('duration_months',)
-    search_fields = ('title', 'name_fa')
+# @admin.register(ResearchProposal)
+# class ResearchProposalAdmin(admin.ModelAdmin):
+#     list_display = ('title', 'name_fa', 'budget', 'duration_months')
+#     list_filter = ('duration_months',)
+#     search_fields = ('title', 'name_fa')
 
-@admin.register(Thesis)
-class ThesisAdmin(admin.ModelAdmin):
-    list_display = ('title', 'student_name', 'university', 'defense_date')
-    list_filter = ('defense_date',)
-    search_fields = ('title', 'student_name')
+# @admin.register(Thesis)
+# class ThesisAdmin(admin.ModelAdmin):
+#     list_display = ('title', 'student_name', 'university', 'defense_date')
+#     list_filter = ('defense_date',)
+#     search_fields = ('title', 'student_name')
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):

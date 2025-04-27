@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     'Main',
     'crispy_forms',
     'crispy_bootstrap5',    
-    'polymorphic',
     'reversion',
     
 ]

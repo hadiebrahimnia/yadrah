@@ -19,7 +19,7 @@
             <th class="">
                 <input type="text" class="form-control filter-input-ResearchProject_list_Table" data-column="4" placeholder="استاد">
             </th>
-            <th class="">ویرایش</th>
+            <th class="">عملیات</th>
         </tr>
     </thead>
     <tbody>
@@ -32,7 +32,7 @@
             <td>{{ project.organization }}</td>
             <td>{{ project.supervisor }}</td>
             <td>
-                <a href="/ResearchProject/{{project.id}}" type="button" class="btn outlined c-second o-second btn-block fnt-xxs ">ویرایش<div class="ripple-container"></div></a>
+                <a href="/ResearchProject/{{project.id}}" type="button" class="btn outlined c-second o-second btn-block fnt-xxs ">مشاهده<div class="ripple-container"></div></a>
             </td>
         </tr>
         {% endfor %}
