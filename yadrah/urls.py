@@ -21,7 +21,6 @@ urlpatterns = [
     path('projects/<int:pk>/', views.ProjectDetailView.as_view(), name='project_detail'),
     path('projects/<int:pk>/update/', views.ProjectUpdateView.as_view(), name='project_update'),
     path('projects/<int:pk>/delete/', views.ProjectDeleteView.as_view(), name='project_delete'),
-    
 
     # # Articles
     path('articles/', views.ArticleListView.as_view(), name='article_list'),
@@ -29,7 +28,6 @@ urlpatterns = [
     path('articles/<int:pk>/', views.ArticleDetailView.as_view(), name='article_detail'),
     path('articles/<int:pk>/update/', views.ArticleUpdateView.as_view(), name='article_update'),
     path('articles/<int:pk>/delete/', views.ArticleDeleteView.as_view(), name='article_delete'),
-    path('articles/<int:pk>/add-reference-with-doi/', views.add_reference_with_doi, name='add_reference_with_doi'),
 
     # # Books
     # path('books/', views.BookListView.as_view(), name='book_list'),
@@ -66,6 +64,9 @@ urlpatterns = [
     # path('theses/<int:pk>/update/', views.ThesisUpdateView.as_view(), name='thesis_update'),
     # path('theses/<int:pk>/delete/', views.ThesisDeleteView.as_view(), name='thesis_delete'),
 
+    # References
+    path('<str:content_type>/<int:object_id>/references/add-with-doi/', views.add_reference_with_doi, name='add_reference_with_doi'),
+
     # # Tasks
     # path('tasks/', views.TaskListView.as_view(), name='task_list'),
     # path('tasks/<int:pk>/', views.TaskDetailView.as_view(), name='task_detail'),
@@ -84,6 +85,6 @@ urlpatterns = [
     # path('notifications/', views.NotificationListView.as_view(), name='notification_list'),
     # path('notifications/<int:pk>/mark-as-read/', views.mark_notification_as_read, name='mark_notification_as_read'),
 
-    # # Translation API
-    # path('translate/', views.translate_text, name='translate_text'),
+    # Translation API
+    path('translate/', views.translate_text, name='translate_text'),
 ]

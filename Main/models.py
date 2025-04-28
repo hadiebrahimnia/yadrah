@@ -1,36 +1,21 @@
 from django.db import models
-from django.core.validators import MinValueValidator
-from tinymce.models import HTMLField
 from django.conf import settings
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from django.utils.functional import cached_property
-from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
-from django.contrib.contenttypes.models import ContentType
-from django.utils.text import slugify
-import reversion
-from django.db.models import Q
 from django.urls import reverse
+from tinymce.models import HTMLField
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+import reversion
+from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MinValueValidator
+from django.utils.functional import cached_property
+from django.utils.text import slugify
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-# Constants
-VISIBILITY_CHOICES = (
-    ('public', 'Public'),
-    ('private', 'Private'),
-    ('team', 'Team Only'),
-)
-
-PROGRESS_CHOICES = (
-    (0, 'Not Started'),
-    (25, '25% Completed'),
-    (50, '50% Completed'),
-    (75, '75% Completed'),
-    (100, '100% Completed'),
-)
 
 ## User Models ##
-
 class Profile(models.Model):
     """
     Enhanced User Profile model with additional academic fields
@@ -85,6 +70,7 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
         Profile.objects.create(user=instance)
     instance.profile.save()
 
+
 ## Core Models ##
 
 class Keyword(models.Model):
@@ -94,7 +80,7 @@ class Keyword(models.Model):
     def __str__(self):
         return self.term
     
-    
+
 class Author(models.Model):
     """
     Enhanced Author model with additional academic fields
@@ -141,6 +127,9 @@ class Author(models.Model):
 
     def get_absolute_url(self):
         return reverse('author_detail', kwargs={'pk': self.pk})
+    
+
+
 
 class Project(models.Model):
     """
@@ -156,7 +145,11 @@ class Project(models.Model):
     # Visibility and collaboration
     visibility = models.CharField(
         max_length=10,
-        choices=VISIBILITY_CHOICES,
+        choices=(
+            ('public', 'Public'),
+            ('private', 'Private'),
+            ('team', 'Team Only'),
+        ),
         default='private',
         verbose_name='Visibility'
     )
@@ -202,7 +195,13 @@ class Project(models.Model):
         verbose_name='Status'
     )
     progress = models.IntegerField(
-        choices=PROGRESS_CHOICES,
+        choices=(
+        (0, 'Not Started'),
+        (25, '25% Completed'),
+        (50, '50% Completed'),
+        (75, '75% Completed'),
+        (100, '100% Completed'),
+        ),
         default=0,
         verbose_name='Progress'
     )
@@ -221,8 +220,6 @@ class Project(models.Model):
         help_text='Projects related to this one'
     )
 
-    references = GenericRelation('Reference')
-
     class Meta:
         verbose_name = 'Project'
         verbose_name_plural = 'Projects'
@@ -237,7 +234,12 @@ class Project(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.title)
+            base_slug = slugify(self.title)
+            self.slug = base_slug
+            counter = 1
+            while Project.objects.filter(slug=self.slug).exists():
+                self.slug = f"{base_slug}-{counter}"
+                counter += 1
         super().save(*args, **kwargs)
 
     def get_absolute_url(self):
@@ -275,6 +277,9 @@ class Project(models.Model):
         elif self.progress == 100:
             return 'success'
         return 'warning'
+    
+
+
 
 @reversion.register()
 class Task(models.Model):
@@ -289,7 +294,6 @@ class Task(models.Model):
     )
     
     project = models.ForeignKey( Project, on_delete=models.CASCADE, related_name='tasks', verbose_name='Project' )
-    
     # Task details
     title = models.CharField(max_length=200, verbose_name='Title')
     description = models.TextField(blank=True, verbose_name='Description')
@@ -375,6 +379,7 @@ class Article(models.Model):
     Enhanced Article model with comprehensive academic fields
     """
     project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='articles', verbose_name='Project' )
+    title = models.CharField(max_length=500, verbose_name='Title')
     ARTICLE_TYPES = (
         ('research', 'Research Article'),
         ('review', 'Review Article'),
@@ -388,9 +393,6 @@ class Article(models.Model):
         ('practical', 'Practical Article'),
     )
 
-    
-    
-    
     # Core Metadata
     article_type = models.CharField(
         max_length=100,
@@ -398,7 +400,6 @@ class Article(models.Model):
         verbose_name='Article Type'
     )
     subtitle = models.CharField(max_length=300, blank=True, verbose_name='Subtitle')
-    abstract = models.TextField(blank=True, verbose_name='Abstract')
     keywords = models.ManyToManyField(Keyword, blank=True, verbose_name='Keywords', related_name='articles')
     authors = models.ManyToManyField(
         Author,
@@ -465,7 +466,7 @@ class Article(models.Model):
         on_delete=models.SET_NULL,
         verbose_name='Article Template'
     )
-
+    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='articles')
     class Meta:
         verbose_name = 'Article'
         verbose_name_plural = 'Articles'
@@ -571,7 +572,6 @@ class ArticleSection(models.Model):
     """
     SECTION_TYPES = (
         # Common sections
-        ('title', 'Title'),
         ('abstract', 'Abstract'),
         ('introduction', 'Introduction'),
         
@@ -741,742 +741,9 @@ class ArticleTemplateSection(models.Model):
     def __str__(self):
         return f"{self.get_section_type_display()} (Required: {self.required})"
 
-## Book Models ##
 
-# @reversion.register()
-# class Book(models.Model):
-#     """
-#     Enhanced Book model with comprehensive publishing fields
-#     """
-#     project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='books', verbose_name='Project' )
-
-#     # Book metadata
-#     publisher = models.CharField(max_length=200, verbose_name='Publisher')
-#     publish_date = models.DateField(verbose_name='Publish Date', null=True, blank=True)
-#     isbn = models.CharField(max_length=100, verbose_name='ISBN', blank=True)
-#     isbn_13 = models.CharField(max_length=100, verbose_name='ISBN-13', blank=True)
-#     page_count = models.PositiveIntegerField(verbose_name='Page Count', null=True, blank=True)
-#     authors = models.ManyToManyField(
-#         Author,
-#         through='BookAuthorship',
-#         verbose_name='Authors'
-#     )
-#     edition = models.PositiveIntegerField(verbose_name='Edition', default=1)
-#     is_published = models.BooleanField(default=False, verbose_name='Published')
-#     cover_image = models.ImageField(
-#         upload_to='book_covers/%Y/%m/%d/',
-#         null=True,
-#         blank=True,
-#         verbose_name='Cover Image'
-#     )
-    
-#     # Book structure fields
-#     preface = HTMLField(verbose_name='Preface', blank=True)
-#     introduction = HTMLField(verbose_name='Introduction', blank=True)
-#     conclusion = HTMLField(verbose_name='Conclusion', blank=True)
-#     bibliography = HTMLField(verbose_name='Bibliography', blank=True)
-#     index = HTMLField(verbose_name='Index', blank=True)
-    
-#     # Royalty and rights
-#     royalty_percentage = models.DecimalField(
-#         max_digits=5,
-#         decimal_places=2,
-#         default=0.0,
-#         verbose_name='Royalty Percentage'
-#     )
-#     copyright_holder = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Copyright Holder'
-#     )
-#     copyright_year = models.PositiveIntegerField(
-#         null=True,
-#         blank=True,
-#         verbose_name='Copyright Year'
-#     )
-    
-
-#     class Meta:
-#         verbose_name = 'Book'
-#         verbose_name_plural = 'Books'
-
-#     def __str__(self):
-#         return f"Book: {self.title}"
-
-#     def get_chapters(self):
-#         """Returns all chapters ordered by their number"""
-#         return self.chapters.all().order_by('chapter_number')
-
-#     def total_chapters(self):
-#         """Returns total number of chapters"""
-#         return self.chapters.count()
-
-#     def get_absolute_url(self):
-#         return reverse('book_detail', kwargs={'slug': self.slug})
-
-# class BookAuthorship(models.Model):
-#     """
-#     Enhanced through model for Book-Author relationship
-#     """
-#     ROLES = (
-#         ('author', 'Author'),
-#         ('editor', 'Editor'),
-#         ('translator', 'Translator'),
-#         ('contributor', 'Contributor'),
-#     )
-    
-#     book = models.ForeignKey(
-#         Book,
-#         on_delete=models.CASCADE,
-#         verbose_name='Book'
-#     )
-#     author = models.ForeignKey(
-#         Author,
-#         on_delete=models.CASCADE,
-#         verbose_name='Author'
-#     )
-#     role = models.CharField(
-#         max_length=20,
-#         choices=ROLES,
-#         default='author',
-#         verbose_name='Role'
-#     )
-#     chapter = models.CharField(
-#         max_length=100,
-#         blank=True,
-#         verbose_name='Chapters Contributed'
-#     )
-#     royalty_share = models.DecimalField(
-#         max_digits=5,
-#         decimal_places=2,
-#         default=0.0,
-#         verbose_name='Royalty Share Percentage'
-#     )
-#     order = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Order in Listing'
-#     )
-
-#     class Meta:
-#         verbose_name = 'Book Authorship'
-#         verbose_name_plural = 'Book Authorships'
-#         ordering = ['order']
-#         unique_together = ('book', 'author', 'role')
-
-#     def __str__(self):
-#         return f"{self.author.full_name()} ({self.get_role_display()}) in {self.book.title}"
-
-# @reversion.register()
-# class BookChapter(models.Model):
-#     """
-#     Enhanced Book Chapter model with versioning
-#     """
-#     book = models.ForeignKey(
-#         Book,
-#         on_delete=models.CASCADE,
-#         related_name='chapters',
-#         verbose_name='Book',
-#         null=True,
-#         blank=True
-#     )
-#     translated_book = models.ForeignKey(
-#         'TranslatedBook',
-#         on_delete=models.CASCADE,
-#         related_name='chapters',
-#         verbose_name='Translated Book',
-#         null=True,
-#         blank=True
-#     )
-    
-#     chapter_number = models.PositiveIntegerField(verbose_name='Chapter Number')
-#     title = models.CharField(max_length=200, verbose_name='Chapter Title')
-#     summary = models.TextField(blank=True, verbose_name='Chapter Summary')
-#     word_count = models.PositiveIntegerField(default=0, verbose_name='Word Count')
-#     book_status = models.CharField(
-#         max_length=20,
-#         choices=(
-#             ('draft', 'Draft'),
-#             ('in_progress', 'In Progress'),
-#             ('completed', 'Completed'),
-#             ('published', 'Published'),
-#         ),
-#         default='draft',
-#         verbose_name='Status'
-#     )
-#     class Meta:
-#         verbose_name = 'Book Chapter'
-#         verbose_name_plural = 'Book Chapters'
-#         ordering = ['chapter_number']
-#         constraints = [
-#             models.CheckConstraint(
-#                 check=models.Q(book__isnull=False) | models.Q(translated_book__isnull=False),
-#                 name='chapter_must_belong_to_book_or_translated_book'
-#             )
-#         ]
-
-#     def __str__(self):
-#         book_title = self.book.title if self.book else self.translated_book.title
-#         return f"Chapter {self.chapter_number}: {self.title} ({book_title})"
-
-#     def save(self, *args, **kwargs):
-#         # Calculate word count from sections
-#         if self.sections.exists():
-#             self.word_count = sum(section.word_count for section in self.sections.all())
-#         super().save(*args, **kwargs)
-
-#     def get_absolute_url(self):
-#         return reverse('chapter_detail', kwargs={'pk': self.pk})
-
-# @reversion.register()
-# class BookSection(models.Model):
-#     """
-#     Enhanced Book Section model with versioning
-#     """
-#     SECTION_TYPES = (
-#         ('text', 'Text'),
-#         ('figure', 'Figure'),
-#         ('table', 'Table'),
-#         ('quote', 'Quote'),
-#         ('list', 'List'),
-#         ('code', 'Code'),
-#         ('equation', 'Equation'),
-#         ('footnote', 'Footnote'),
-#         ('sidebar', 'Sidebar'),
-#         ('example', 'Example'),
-#     )
-    
-#     chapter = models.ForeignKey(
-#         BookChapter,
-#         on_delete=models.CASCADE,
-#         related_name='sections',
-#         verbose_name='Chapter'
-#     )
-#     section_type = models.CharField(
-#         max_length=100,
-#         choices=SECTION_TYPES,
-#         verbose_name='Section Type'
-#     )
-#     title = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Section Title'
-#     )
-#     content = HTMLField(verbose_name='Content', blank=True)
-#     position = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Position in Chapter'
-#     )
-#     notes = models.TextField(
-#         blank=True,
-#         verbose_name='Translator/Author Notes'
-#     )
-#     word_count = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Word Count'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Book Section'
-#         verbose_name_plural = 'Book Sections'
-#         ordering = ['position']
-
-#     def __str__(self):
-#         return f"{self.get_section_type_display()} - {self.chapter.title}"
-
-#     def save(self, *args, **kwargs):
-#         # Calculate word count
-#         if self.content:
-#             self.word_count = len(re.sub(r'<[^>]+>', '', self.content).split())
-#         super().save(*args, **kwargs)
-        
-#         # Update chapter word count
-#         self.chapter.save()
-
-# @reversion.register()
-# class BookFigure(models.Model):
-#     """
-#     Enhanced Book Figure model with versioning
-#     """
-#     chapter = models.ForeignKey(
-#         BookChapter,
-#         on_delete=models.CASCADE,
-#         related_name='figures',
-#         verbose_name='Chapter'
-#     )
-#     figure_number = models.PositiveIntegerField(verbose_name='Figure Number')
-#     title = models.CharField(max_length=200, verbose_name='Figure Title')
-#     description = models.TextField(blank=True, verbose_name='Description')
-#     image = models.ImageField(
-#         upload_to='book_figures/%Y/%m/%d/',
-#         verbose_name='Image File'
-#     )
-#     position = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Position in Chapter'
-#     )
-#     source = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Source/Credit'
-#     )
-#     caption = models.TextField(
-#         blank=True,
-#         verbose_name='Caption'
-#     )
-#     license = models.CharField(
-#         max_length=100,
-#         blank=True,
-#         verbose_name='License'
-#     )
-
-#     class Meta:
-#         verbose_name = 'Book Figure'
-#         verbose_name_plural = 'Book Figures'
-#         ordering = ['position']
-
-#     def __str__(self):
-#         return f"Figure {self.figure_number}: {self.title} ({self.chapter.title})"
-
-#     def save(self, *args, **kwargs):
-#         if not self.figure_number:
-#             # Auto-assign figure number
-#             last_figure = BookFigure.objects.filter(chapter=self.chapter).order_by('-figure_number').first()
-#             self.figure_number = last_figure.figure_number + 1 if last_figure else 1
-#         super().save(*args, **kwargs)
-
-# @reversion.register()
-# class BookTable(models.Model):
-#     """
-#     Enhanced Book Table model with versioning
-#     """
-#     chapter = models.ForeignKey(
-#         BookChapter,
-#         on_delete=models.CASCADE,
-#         related_name='tables',
-#         verbose_name='Chapter'
-#     )
-#     table_number = models.PositiveIntegerField(verbose_name='Table Number')
-#     title = models.CharField(max_length=200, verbose_name='Table Title')
-#     content = HTMLField(verbose_name='Table Content', blank=True)
-#     position = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Position in Chapter'
-#     )
-#     notes = models.TextField(blank=True, verbose_name='Notes')
-#     source = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Source'
-#     )
-#     caption = models.TextField(
-#         blank=True,
-#         verbose_name='Caption'
-#     )
-
-#     class Meta:
-#         verbose_name = 'Book Table'
-#         verbose_name_plural = 'Book Tables'
-#         ordering = ['position']
-
-#     def __str__(self):
-#         return f"Table {self.table_number}: {self.title} ({self.chapter.title})"
-
-#     def save(self, *args, **kwargs):
-#         if not self.table_number:
-#             # Auto-assign table number
-#             last_table = BookTable.objects.filter(chapter=self.chapter).order_by('-table_number').first()
-#             self.table_number = last_table.table_number + 1 if last_table else 1
-#         super().save(*args, **kwargs)
-
-# @reversion.register()
-# class TranslatedBook(models.Model):
-#     """
-#     Enhanced Translated Book model
-#     """
-#     project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='translatebooks', verbose_name='Project' )
-
-#     # Translation metadata
-#     original_title = models.CharField(max_length=200, verbose_name='Original Title')
-#     original_language = models.CharField(max_length=100, verbose_name='Original Language')
-#     publisher = models.CharField(max_length=200, verbose_name='Publisher')
-#     publish_date = models.DateField(verbose_name='Publish Date', null=True, blank=True)
-#     isbn = models.CharField(max_length=100, verbose_name='ISBN', blank=True)
-#     isbn_13 = models.CharField(max_length=100, verbose_name='ISBN-13', blank=True)
-#     page_count = models.PositiveIntegerField(verbose_name='Page Count', null=True, blank=True)
-#     translator = models.ManyToManyField(
-#         Author,
-#         through='TranslationAuthorship',
-#         verbose_name='Translators'
-#     )
-#     original_author = models.CharField(max_length=200, verbose_name='Original Author')
-#     is_published = models.BooleanField(default=False, verbose_name='Published')
-#     cover_image = models.ImageField(
-#         upload_to='translated_book_covers/%Y/%m/%d/',
-#         null=True,
-#         blank=True,
-#         verbose_name='Cover Image'
-#     )
-    
-#     # Translation structure fields
-#     translator_preface = HTMLField(verbose_name='Translator Preface', blank=True)
-#     original_preface = HTMLField(verbose_name='Original Preface', blank=True)
-#     introduction = HTMLField(verbose_name='Introduction', blank=True)
-#     conclusion = HTMLField(verbose_name='Conclusion', blank=True)
-#     bibliography = HTMLField(verbose_name='Bibliography', blank=True)
-#     index = HTMLField(verbose_name='Index', blank=True)
-    
-#     # Rights and permissions
-#     translation_rights_holder = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Translation Rights Holder'
-#     )
-#     translation_rights_year = models.PositiveIntegerField(
-#         null=True,
-#         blank=True,
-#         verbose_name='Translation Rights Year'
-#     )
-#     royalty_percentage = models.DecimalField(
-#         max_digits=5,
-#         decimal_places=2,
-#         default=0.0,
-#         verbose_name='Royalty Percentage'
-#     )
-
-#     class Meta:
-#         verbose_name = 'Translated Book'
-#         verbose_name_plural = 'Translated Books'
-
-#     def __str__(self):
-#         return f"Translated Book: {self.title}"
-
-#     def get_chapters(self):
-#         """Returns all chapters ordered by their number"""
-#         return self.chapters.all().order_by('chapter_number')
-
-#     def total_chapters(self):
-#         """Returns total number of chapters"""
-#         return self.chapters.count()
-
-# class TranslationAuthorship(models.Model):
-#     """
-#     Through model for TranslatedBook-Translator relationship
-#     """
-#     ROLES = (
-#         ('translator', 'Translator'),
-#         ('editor', 'Editor'),
-#         ('proofreader', 'Proofreader'),
-#     )
-    
-#     book = models.ForeignKey(
-#         TranslatedBook,
-#         on_delete=models.CASCADE,
-#         verbose_name='Book'
-#     )
-#     translator = models.ForeignKey(
-#         Author,
-#         on_delete=models.CASCADE,
-#         verbose_name='Translator'
-#     )
-#     role = models.CharField(
-#         max_length=20,
-#         choices=ROLES,
-#         default='translator',
-#         verbose_name='Role'
-#     )
-#     chapters = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Chapters Translated'
-#     )
-#     royalty_share = models.DecimalField(
-#         max_digits=5,
-#         decimal_places=2,
-#         default=0.0,
-#         verbose_name='Royalty Share Percentage'
-#     )
-#     order = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Order in Listing'
-#     )
-
-#     class Meta:
-#         verbose_name = 'Translation Authorship'
-#         verbose_name_plural = 'Translation Authorships'
-#         ordering = ['order']
-#         unique_together = ('book', 'translator', 'role')
-
-#     def __str__(self):
-#         return f"{self.translator.full_name()} ({self.get_role_display()}) for {self.book.title}"
-
-# ## Research Proposal Models ##
-
-# @reversion.register()
-# class ResearchProposal(models.Model):
-#     """
-#     Enhanced Research Proposal model
-#     """
-#     project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='researchproposal', verbose_name='Project' )
-#     # Basic info
-#     title = models.CharField(max_length=200, verbose_name='Title')
-#     budget = models.DecimalField(
-#         max_digits=12,
-#         decimal_places=2,
-#         verbose_name='Budget',
-#         null=True,
-#         blank=True,
-#         validators=[MinValueValidator(0)]
-#     )
-#     duration_months = models.PositiveIntegerField(
-#         verbose_name='Duration (months)',
-#         null=True,
-#         blank=True
-#     )
-#     sponsor = models.CharField(max_length=200, verbose_name='Sponsor', blank=True)
-#     grant_number = models.CharField(
-#         max_length=100,
-#         blank=True,
-#         verbose_name='Grant Number'
-#     )
-#     submission_deadline = models.DateField(
-#         null=True,
-#         blank=True,
-#         verbose_name='Submission Deadline'
-#     )
-    
-#     # Content sections
-#     problem_statement = HTMLField(verbose_name='Problem Statement', blank=True)
-#     research_importance = HTMLField(verbose_name='Research Importance', blank=True)
-#     literature_review = HTMLField(verbose_name='Literature Review', blank=True)
-#     research_objectives = HTMLField(verbose_name='Research Objectives', blank=True)
-#     research_methodology = HTMLField(verbose_name='Research Methodology', blank=True)
-#     expected_results = HTMLField(verbose_name='Expected Results', blank=True)
-    
-#     # Team information
-#     principal_investigator = models.ForeignKey(
-#         Author,
-#         on_delete=models.SET_NULL,
-#         null=True,
-#         blank=True,
-#         related_name='led_proposals',
-#         verbose_name='Principal Investigator'
-#     )
-#     co_investigators = models.ManyToManyField(
-#         Author,
-#         related_name='collaborated_proposals',
-#         blank=True,
-#         verbose_name='Co-Investigators'
-#     )
-    
-#     # Status
-#     submission_status = models.CharField(
-#         max_length=20,
-#         choices=(
-#             ('draft', 'Draft'),
-#             ('submitted', 'Submitted'),
-#             ('under_review', 'Under Review'),
-#             ('approved', 'Approved'),
-#             ('rejected', 'Rejected'),
-#             ('funded', 'Funded'),
-#         ),
-#         default='draft',
-#         verbose_name='Status'
-#     )
-    
-#     # Template reference
-#     template = models.ForeignKey(
-#         'ResearchProposalTemplate',
-#         null=True,
-#         blank=True,
-#         on_delete=models.SET_NULL,
-#         verbose_name='Proposal Template'
-#     )
-
-#     def get_sections(self):
-#         """Returns all sections ordered by their position"""
-#         return self.sections.all().order_by('position')
-
-#     def create_from_template(self, template_id):
-#         """Create proposal sections from a template"""
-#         template = ResearchProposalTemplate.objects.get(id=template_id)
-#         self.template = template
-#         self.save()
-        
-#         for section in template.sections.all().order_by('default_position'):
-#             ResearchProposalSection.objects.create(
-#                 proposal=self,
-#                 section_type=section.section_type,
-#                 title=section.title,
-#                 position=section.default_position,
-#                 guidance=section.description
-#             )
-
-#     class Meta:
-#         verbose_name = 'Research Proposal'
-#         verbose_name_plural = 'Research Proposals'
-
-#     def __str__(self):
-#         return f"Research Proposal: {self.title}"
-
-# @reversion.register()
-# class ResearchProposalSection(models.Model):
-#     """
-#     Enhanced Research Proposal Section model
-#     """
-#     SECTION_TYPES = (
-#         ('title', 'Title Page'),
-#         ('abstract', 'Abstract'),
-#         ('introduction', 'Introduction'),
-#         ('problem_statement', 'Problem Statement'),
-#         ('research_questions', 'Research Questions'),
-#         ('objectives', 'Objectives'),
-#         ('significance', 'Significance of Research'),
-#         ('literature_review', 'Literature Review'),
-#         ('methodology', 'Methodology'),
-#         ('research_design', 'Research Design'),
-#         ('data_collection', 'Data Collection Methods'),
-#         ('data_analysis', 'Data Analysis Methods'),
-#         ('timeline', 'Timeline/Schedule'),
-#         ('budget', 'Budget'),
-#         ('expected_outcomes', 'Expected Outcomes'),
-#         ('references', 'References'),
-#         ('appendices', 'Appendices'),
-#         ('team', 'Research Team'),
-#         ('facilities', 'Facilities and Resources'),
-#     )
-    
-#     proposal = models.ForeignKey(
-#         ResearchProposal,
-#         on_delete=models.CASCADE,
-#         related_name='sections',
-#         verbose_name='Research Proposal'
-#     )
-#     section_type = models.CharField(
-#         max_length=100,
-#         choices=SECTION_TYPES,
-#         verbose_name='Section Type'
-#     )
-#     title = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Section Title'
-#     )
-#     content = HTMLField(verbose_name='Content', blank=True)
-#     position = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Position in Proposal'
-#     )
-#     guidance = models.TextField(
-#         blank=True,
-#         verbose_name='Writing Guidance'
-#     )
-#     word_count = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Word Count'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Research Proposal Section'
-#         verbose_name_plural = 'Research Proposal Sections'
-#         ordering = ['position']
-
-#     def __str__(self):
-#         return f"{self.get_section_type_display()} - {self.proposal.title}"
-
-#     def save(self, *args, **kwargs):
-#         # Calculate word count
-#         if self.content:
-#             self.word_count = len(re.sub(r'<[^>]+>', '', self.content).split())
-#         super().save(*args, **kwargs)
-
-# class ResearchProposalTemplate(models.Model):
-#     """
-#     Enhanced Research Proposal Template model
-#     """
-#     name = models.CharField(max_length=100, verbose_name='Template Name')
-#     description = models.TextField(blank=True, verbose_name='Description')
-#     disciplines = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Applicable Disciplines'
-#     )
-#     funding_agency = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Funding Agency'
-#     )
-#     is_default = models.BooleanField(
-#         default=False,
-#         verbose_name='Default Template'
-#     )
-    
-#     sections = models.ManyToManyField(
-#         'ResearchProposalTemplateSection',
-#         related_name='templates',
-#         verbose_name='Sections'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Research Proposal Template'
-#         verbose_name_plural = 'Research Proposal Templates'
-
-#     def __str__(self):
-#         return self.name
-
-#     def save(self, *args, **kwargs):
-#         if self.is_default:
-#             # Ensure no other default templates
-#             ResearchProposalTemplate.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
-#         super().save(*args, **kwargs)
-
-# class ResearchProposalTemplateSection(models.Model):
-#     """
-#     Enhanced Research Proposal Template Section model
-#     """
-#     SECTION_TYPES = ResearchProposalSection.SECTION_TYPES
-    
-#     section_type = models.CharField(
-#         max_length=100,
-#         choices=SECTION_TYPES,
-#         verbose_name='Section Type'
-#     )
-#     title = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Default Title'
-#     )
-#     description = models.TextField(
-#         blank=True,
-#         verbose_name='Description/Guidance'
-#     )
-#     required = models.BooleanField(
-#         default=True,
-#         verbose_name='Required Section'
-#     )
-#     default_position = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Default Position'
-#     )
-#     word_limit = models.PositiveIntegerField(
-#         null=True,
-#         blank=True,
-#         verbose_name='Word Limit'
-#     )
-#     example = models.TextField(
-#         blank=True,
-#         verbose_name='Example Content'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Proposal Template Section'
-#         verbose_name_plural = 'Proposal Template Sections'
-#         ordering = ['default_position']
-        
-#     def __str__(self):
-#         return f"{self.get_section_type_display()} (Required: {self.required})"
 
 # ## Research Project Models ##
-
 @reversion.register()
 class ResearchProject(models.Model):
     """
@@ -1484,6 +751,7 @@ class ResearchProject(models.Model):
     """
     project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='researchproject', verbose_name='Project' )
     # Research project metadata
+    title = models.CharField(max_length=500, verbose_name='Title')
     organization = models.CharField(max_length=200, verbose_name='Organization')
     research_code = models.CharField(max_length=50, verbose_name='Research Code', blank=True)
     supervisor=models.CharField(max_length=50, verbose_name='Supervisor', blank=True)
@@ -1543,6 +811,7 @@ class ResearchProject(models.Model):
         on_delete=models.SET_NULL,
         verbose_name='Project Template'
     )
+    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='researchproject')
 
     def get_sections(self):
         """Returns all sections ordered by their position"""
@@ -1581,7 +850,6 @@ class ResearchProjectSection(models.Model):
     Enhanced Research Project Section model
     """
     SECTION_TYPES = (
-        ('title', 'Title'),
         ('abstract', 'Abstract'),
         ('introduction', 'Introduction'),
         ('research_design', 'Research Design'),
@@ -1594,7 +862,6 @@ class ResearchProjectSection(models.Model):
         ('results', 'Results'),
         ('discussion', 'Discussion'),
         ('conclusion', 'Conclusion'),
-        ('references', 'References'),
         ('appendices', 'Appendices'),
     )
     
@@ -1719,407 +986,1038 @@ class ResearchProjectTemplateSection(models.Model):
         return f"{self.get_section_type_display()} (Required: {self.required})"
 
 
-# @reversion.register()
-# class Thesis(models.Model):
-#     """
-#     Enhanced Thesis model with comprehensive academic fields
-#     """
-#     project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='thesis', verbose_name='Project' )
-#     DEGREE_TYPES = (
-#         ('bachelor', "Bachelor's Thesis"),
-#         ('master', "Master's Thesis"),
-#         ('phd', 'PhD Dissertation'),
-#         ('habilitation', 'Habilitation Thesis'),
-#     )
-    
-#     # Thesis metadata
-#     student_name = models.CharField(max_length=100, verbose_name='Student Name')
-#     student_id = models.CharField(max_length=50, blank=True, verbose_name='Student ID')
-#     university = models.CharField(max_length=200, verbose_name='University')
-#     department = models.CharField(max_length=200, blank=True, verbose_name='Department')
-#     faculty = models.CharField(max_length=200, blank=True, verbose_name='Faculty')
-#     degree_type = models.CharField(
-#         max_length=20,
-#         choices=DEGREE_TYPES,
-#         verbose_name='Degree Type'
-#     )
-#     defense_date = models.DateField(verbose_name='Defense Date', null=True, blank=True)
-#     submission_date = models.DateField(verbose_name='Submission Date', null=True, blank=True)
-#     supervisor = models.ForeignKey(
-#         Author,
-#         on_delete=models.SET_NULL,
-#         null=True,
-#         related_name='supervised_theses',
-#         verbose_name='Supervisor'
-#     )
-#     advisor = models.ForeignKey(
-#         Author,
-#         on_delete=models.SET_NULL,
-#         null=True,
-#         blank=True,
-#         related_name='advised_theses',
-#         verbose_name='Advisor'
-#     )
-#     committee = models.ManyToManyField(
-#         Author,
-#         related_name='committee_theses',
-#         blank=True,
-#         verbose_name='Committee Members'
-#     )
-#     grade = models.CharField(max_length=50, verbose_name='Grade', blank=True)
-#     thesis_file = models.FileField(
-#         upload_to='theses/%Y/%m/%d/',
-#         verbose_name='Thesis File',
-#         null=True,
-#         blank=True
-#     )
-#     abstract = models.TextField(verbose_name='Abstract', blank=True)
-#     keywords = models.ManyToManyField(Keyword, blank=True, verbose_name='Keywords', related_name='theses')
-    
-#     # Template reference
-#     template = models.ForeignKey(
-#         'ThesisTemplate',
-#         null=True,
-#         blank=True,
-#         on_delete=models.SET_NULL,
-#         verbose_name='Thesis Template'
-#     )
 
-#     def get_sections(self):
-#         """Returns all sections ordered by their position"""
-#         return self.sections.all().order_by('position')
+## Book Models ##
 
-#     def get_chapters(self):
-#         """Returns all chapters ordered by their number"""
-#         return self.chapters.all().order_by('chapter_number')
-
-#     def create_from_template(self, template_id):
-#         """Create thesis sections from a template"""
-#         template = ThesisTemplate.objects.get(id=template_id)
-#         self.template = template
-#         self.save()
-        
-#         for section in template.sections.all().order_by('default_position'):
-#             ThesisSection.objects.create(
-#                 thesis=self,
-#                 section_type=section.section_type,
-#                 title=section.title,
-#                 position=section.default_position,
-#                 guidance=section.description
-#             )
-
-#     class Meta:
-#         verbose_name = 'Thesis'
-#         verbose_name_plural = 'Theses'
-
-#     def __str__(self):
-#         return f"Thesis: {self.title}"
-
-# @reversion.register()
-# class ThesisSection(models.Model):
-#     """
-#     Enhanced Thesis Section model
-#     """
-#     SECTION_TYPES = (
-#         ('title', 'Title Page'),
-#         ('approval', 'Approval Page'),
-#         ('dedication', 'Dedication'),
-#         ('acknowledgments', 'Acknowledgments'),
-#         ('abstract', 'Abstract'),
-#         ('table_of_contents', 'Table of Contents'),
-#         ('list_of_tables', 'List of Tables'),
-#         ('list_of_figures', 'List of Figures'),
-#         ('list_of_abbreviations', 'List of Abbreviations'),
-#         ('list_of_symbols', 'List of Symbols'),
-#         ('introduction', 'Introduction'),
-#         ('literature_review', 'Literature Review'),
-#         ('methodology', 'Methodology'),
-#         ('results', 'Results'),
-#         ('discussion', 'Discussion'),
-#         ('conclusion', 'Conclusion'),
-#         ('recommendations', 'Recommendations'),
-#         ('references', 'References'),
-#         ('appendices', 'Appendices'),
-#         ('cv', 'Curriculum Vitae'),
-#     )
-    
-#     thesis = models.ForeignKey(
-#         Thesis,
-#         on_delete=models.CASCADE,
-#         related_name='sections',
-#         verbose_name='Thesis'
-#     )
-#     section_type = models.CharField(
-#         max_length=100,
-#         choices=SECTION_TYPES,
-#         verbose_name='Section Type'
-#     )
-#     title = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Section Title'
-#     )
-#     content = HTMLField(verbose_name='Content', blank=True)
-#     position = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Position in Thesis'
-#     )
-#     guidance = models.TextField(
-#         blank=True,
-#         verbose_name='Writing Guidance'
-#     )
-#     word_count = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Word Count'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Thesis Section'
-#         verbose_name_plural = 'Thesis Sections'
-#         ordering = ['position']
-
-#     def __str__(self):
-#         return f"{self.get_section_type_display()} - {self.thesis.title}"
-
-#     def save(self, *args, **kwargs):
-#         # Calculate word count
-#         if self.content:
-#             self.word_count = len(re.sub(r'<[^>]+>', '', self.content).split())
-#         super().save(*args, **kwargs)
-
-# @reversion.register()
-# class ThesisChapter(models.Model):
-#     """
-#     Enhanced Thesis Chapter model
-#     """
-#     thesis = models.ForeignKey(
-#         Thesis,
-#         on_delete=models.CASCADE,
-#         related_name='chapters',
-#         verbose_name='Thesis'
-#     )
-#     chapter_number = models.PositiveIntegerField(verbose_name='Chapter Number')
-#     title = models.CharField(max_length=200, verbose_name='Chapter Title')
-#     summary = models.TextField(blank=True, verbose_name='Chapter Summary')
-#     word_count = models.PositiveIntegerField(default=0, verbose_name='Word Count')
-#     thesis_status = models.CharField(
-#         max_length=20,
-#         choices=(
-#             ('draft', 'Draft'),
-#             ('in_progress', 'In Progress'),
-#             ('completed', 'Completed'),
-#             ('approved', 'Approved'),
-#         ),
-#         default='draft',
-#         verbose_name='Status'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Thesis Chapter'
-#         verbose_name_plural = 'Thesis Chapters'
-#         ordering = ['chapter_number']
-
-#     def __str__(self):
-#         return f"Chapter {self.chapter_number}: {self.title}"
-
-#     def save(self, *args, **kwargs):
-#         # Calculate word count from sections
-#         if self.sections.exists():
-#             self.word_count = sum(section.word_count for section in self.sections.all())
-#         super().save(*args, **kwargs)
-
-# class ThesisTemplate(models.Model):
-#     """
-#     Enhanced Thesis Template model
-#     """
-#     name = models.CharField(max_length=100, verbose_name='Template Name')
-#     description = models.TextField(blank=True, verbose_name='Description')
-#     university = models.CharField(max_length=200, verbose_name='University')
-#     department = models.CharField(max_length=200, blank=True, verbose_name='Department')
-#     faculty = models.CharField(max_length=200, blank=True, verbose_name='Faculty')
-#     degree_type = models.CharField(
-#         max_length=20,
-#         choices=Thesis.DEGREE_TYPES,
-#         verbose_name='Degree Type'
-#     )
-#     is_default = models.BooleanField(
-#         default=False,
-#         verbose_name='Default Template'
-#     )
-    
-#     sections = models.ManyToManyField(
-#         'ThesisTemplateSection',
-#         related_name='templates',
-#         verbose_name='Sections'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Thesis Template'
-#         verbose_name_plural = 'Thesis Templates'
-
-#     def __str__(self):
-#         return f"{self.name} ({self.university})"
-
-#     def save(self, *args, **kwargs):
-#         if self.is_default:
-#             # Ensure no other default for this degree type
-#             ThesisTemplate.objects.filter(
-#                 degree_type=self.degree_type,
-#                 is_default=True
-#             ).exclude(pk=self.pk).update(is_default=False)
-#         super().save(*args, **kwargs)
-
-# class ThesisTemplateSection(models.Model):
-#     """
-#     Enhanced Thesis Template Section model
-#     """
-#     SECTION_TYPES = ThesisSection.SECTION_TYPES
-    
-#     section_type = models.CharField(
-#         max_length=100,
-#         choices=SECTION_TYPES,
-#         verbose_name='Section Type'
-#     )
-#     title = models.CharField(
-#         max_length=200,
-#         blank=True,
-#         verbose_name='Default Title'
-#     )
-#     description = models.TextField(
-#         blank=True,
-#         verbose_name='Description/Guidance'
-#     )
-#     required = models.BooleanField(
-#         default=True,
-#         verbose_name='Required Section'
-#     )
-#     default_position = models.PositiveIntegerField(
-#         default=0,
-#         verbose_name='Default Position'
-#     )
-#     word_limit = models.PositiveIntegerField(
-#         null=True,
-#         blank=True,
-#         verbose_name='Word Limit'
-#     )
-#     example = models.TextField(
-#         blank=True,
-#         verbose_name='Example Content'
-#     )
-    
-#     class Meta:
-#         verbose_name = 'Thesis Template Section'
-#         verbose_name_plural = 'Thesis Template Sections'
-#         ordering = ['default_position']
-        
-#     def __str__(self):
-#         return f"{self.get_section_type_display()} (Required: {self.required})"
-
-# ## Reference Models ##
-
-class Reference(models.Model):
+@reversion.register()
+class Book(models.Model):
     """
-    Enhanced Reference model supporting multiple reference types
+    Enhanced Book model with comprehensive publishing fields
     """
-    REFERENCE_TYPES = (
-        ('book', 'Book'),
-        ('article', 'Journal Article'),
-        ('thesis', 'Thesis/Dissertation'),
-        ('conference', 'Conference Paper'),
-        ('report', 'Report'),
-        ('website', 'Website'),
-        ('other', 'Other'),
+    project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='books', verbose_name='Project' )
+    # Book metadata
+    title = models.CharField(max_length=500, verbose_name='Title')
+    publisher = models.CharField(max_length=200, verbose_name='Publisher')
+    publish_date = models.DateField(verbose_name='Publish Date', null=True, blank=True)
+    isbn = models.CharField(max_length=100, verbose_name='ISBN', blank=True)
+    isbn_13 = models.CharField(max_length=100, verbose_name='ISBN-13', blank=True)
+    page_count = models.PositiveIntegerField(verbose_name='Page Count', null=True, blank=True)
+    authors = models.ManyToManyField(
+        Author,
+        through='BookAuthorship',
+        verbose_name='Authors'
+    )
+    edition = models.PositiveIntegerField(verbose_name='Edition', default=1)
+    is_published = models.BooleanField(default=False, verbose_name='Published')
+    cover_image = models.ImageField(
+        upload_to='book_covers/%Y/%m/%d/',
+        null=True,
+        blank=True,
+        verbose_name='Cover Image'
     )
     
-    # Generic relation to any model
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
-    content_object = GenericForeignKey('content_type', 'object_id')
+    # Book structure fields
+    preface = HTMLField(verbose_name='Preface', blank=True)
+    introduction = HTMLField(verbose_name='Introduction', blank=True)
+    conclusion = HTMLField(verbose_name='Conclusion', blank=True)
+    bibliography = HTMLField(verbose_name='Bibliography', blank=True)
+    index = HTMLField(verbose_name='Index', blank=True)
     
-    # Reference metadata
-    reference_type = models.CharField(
+    # Royalty and rights
+    royalty_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.0,
+        verbose_name='Royalty Percentage'
+    )
+    copyright_holder = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Copyright Holder'
+    )
+    copyright_year = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Copyright Year'
+    )
+    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='book')
+    class Meta:
+        verbose_name = 'Book'
+        verbose_name_plural = 'Books'
+
+    def __str__(self):
+        return f"Book: {self.title}"
+
+    def get_chapters(self):
+        """Returns all chapters ordered by their number"""
+        return self.chapters.all().order_by('chapter_number')
+
+    def total_chapters(self):
+        """Returns total number of chapters"""
+        return self.chapters.count()
+
+    def get_absolute_url(self):
+        return reverse('book_detail', kwargs={'slug': self.slug})
+
+class BookAuthorship(models.Model):
+    """
+    Enhanced through model for Book-Author relationship
+    """
+    ROLES = (
+        ('author', 'Author'),
+        ('editor', 'Editor'),
+        ('translator', 'Translator'),
+        ('contributor', 'Contributor'),
+    )
+    
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        verbose_name='Book'
+    )
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        verbose_name='Author'
+    )
+    role = models.CharField(
         max_length=20,
-        choices=REFERENCE_TYPES,
-        verbose_name='Reference Type'
+        choices=ROLES,
+        default='author',
+        verbose_name='Role'
     )
-    citation_key = models.CharField(
+    chapter = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name='Citation Key'
+        verbose_name='Chapters Contributed'
+    )
+    royalty_share = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.0,
+        verbose_name='Royalty Share Percentage'
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Order in Listing'
+    )
+
+    class Meta:
+        verbose_name = 'Book Authorship'
+        verbose_name_plural = 'Book Authorships'
+        ordering = ['order']
+        unique_together = ('book', 'author', 'role')
+
+    def __str__(self):
+        return f"{self.author.full_name()} ({self.get_role_display()}) in {self.book.title}"
+
+@reversion.register()
+class BookChapter(models.Model):
+    """
+    Enhanced Book Chapter model with versioning
+    """
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name='chapters',
+        verbose_name='Book',
+        null=True,
+        blank=True
+    )
+    translated_book = models.ForeignKey(
+        'TranslatedBook',
+        on_delete=models.CASCADE,
+        related_name='chapters',
+        verbose_name='Translated Book',
+        null=True,
+        blank=True
     )
     
+    chapter_number = models.PositiveIntegerField(verbose_name='Chapter Number')
+    title = models.CharField(max_length=200, verbose_name='Chapter Title')
+    summary = models.TextField(blank=True, verbose_name='Chapter Summary')
+    word_count = models.PositiveIntegerField(default=0, verbose_name='Word Count')
+    book_status = models.CharField(
+        max_length=20,
+        choices=(
+            ('draft', 'Draft'),
+            ('in_progress', 'In Progress'),
+            ('completed', 'Completed'),
+            ('published', 'Published'),
+        ),
+        default='draft',
+        verbose_name='Status'
+    )
     class Meta:
-        verbose_name = 'Reference'
-        verbose_name_plural = 'References'
-        ordering = ['authors']
-        indexes = [
-            models.Index(fields=["content_type", "object_id"]),
+        verbose_name = 'Book Chapter'
+        verbose_name_plural = 'Book Chapters'
+        ordering = ['chapter_number']
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(book__isnull=False) | models.Q(translated_book__isnull=False),
+                name='chapter_must_belong_to_book_or_translated_book'
+            )
         ]
 
     def __str__(self):
-        return f"{self.REFERENCE_TYPES} ({self.content_type}). {self.object_id}"
+        book_title = self.book.title if self.book else self.translated_book.title
+        return f"Chapter {self.chapter_number}: {self.title} ({book_title})"
 
-    def get_citation(self, style='apa'):
-        """Generate citation in specified style"""
-        if style == 'apa':
-            return self._generate_apa_citation()
-        elif style == 'mla':
-            return self._generate_mla_citation()
-        elif style == 'chicago':
-            return self._generate_chicago_citation()
-        else:
-            return self._generate_apa_citation()
+    def save(self, *args, **kwargs):
+        # Calculate word count from sections
+        if self.sections.exists():
+            self.word_count = sum(section.word_count for section in self.sections.all())
+        super().save(*args, **kwargs)
 
-    def _generate_apa_citation(self):
-        """Generate APA style citation"""
-        citation = f"{self.authors} ({self.publication_date}). {self.title}."
-        if self.journal:
-            citation += f" {self.journal}"
-            if self.volume:
-                citation += f", {self.volume}"
-                if self.issue:
-                    citation += f"({self.issue})"
-            if self.pages:
-                citation += f", {self.pages}."
-        elif self.publisher:
-            citation += f" {self.publisher}."
-        if self.doi:
-            citation += f" https://doi.org/{self.doi}"
-        elif self.url:
-            citation += f" Retrieved from {self.url}"
-        return citation
+    def get_absolute_url(self):
+        return reverse('chapter_detail', kwargs={'pk': self.pk})
 
-    def _generate_mla_citation(self):
-        """Generate MLA style citation"""
-        citation = f"{self.authors}. \"{self.title}.\""
-        if self.journal:
-            citation += f" {self.journal}, vol. {self.volume}" if self.volume else f" {self.journal}"
-            citation += f", no. {self.issue}" if self.issue else ""
-            citation += f", {self.publication_date}, pp. {self.pages}." if self.pages else f", {self.publication_date}."
-        elif self.publisher:
-            citation += f" {self.publisher}, {self.publication_date}."
-        if self.doi:
-            citation += f" DOI: {self.doi}"
-        elif self.url:
-            citation += f" Web. Accessed {timezone.now().strftime('%d %b %Y')}. <{self.url}>"
-        return citation
+@reversion.register()
+class BookSection(models.Model):
+    """
+    Enhanced Book Section model with versioning
+    """
+    SECTION_TYPES = (
+        ('text', 'Text'),
+        ('figure', 'Figure'),
+        ('table', 'Table'),
+        ('quote', 'Quote'),
+        ('list', 'List'),
+        ('code', 'Code'),
+        ('equation', 'Equation'),
+        ('footnote', 'Footnote'),
+        ('sidebar', 'Sidebar'),
+        ('example', 'Example'),
+    )
+    
+    chapter = models.ForeignKey(
+        BookChapter,
+        on_delete=models.CASCADE,
+        related_name='sections',
+        verbose_name='Chapter'
+    )
+    section_type = models.CharField(
+        max_length=100,
+        choices=SECTION_TYPES,
+        verbose_name='Section Type'
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Section Title'
+    )
+    content = HTMLField(verbose_name='Content', blank=True)
+    position = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Position in Chapter'
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name='Translator/Author Notes'
+    )
+    word_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Word Count'
+    )
+    
+    class Meta:
+        verbose_name = 'Book Section'
+        verbose_name_plural = 'Book Sections'
+        ordering = ['position']
 
-    def _generate_chicago_citation(self):
-        """Generate Chicago style citation"""
-        citation = f"{self.authors}. \"{self.title}.\""
-        if self.journal:
-            citation += f" {self.journal} {self.volume}" if self.volume else f" {self.journal}"
-            citation += f", no. {self.issue}" if self.issue else ""
-            citation += f" ({self.publication_date}): {self.pages}." if self.pages else f" ({self.publication_date})."
-        elif self.publisher:
-            citation += f" {self.publisher}, {self.publication_date}."
-        if self.doi:
-            citation += f" https://doi.org/{self.doi}"
-        elif self.url:
-            citation += f" {self.url}"
-        return citation
+    def __str__(self):
+        return f"{self.get_section_type_display()} - {self.chapter.title}"
 
-## Notification Models ##
+    def save(self, *args, **kwargs):
+        # Calculate word count
+        if self.content:
+            self.word_count = len(re.sub(r'<[^>]+>', '', self.content).split())
+        super().save(*args, **kwargs)
+        
+        # Update chapter word count
+        self.chapter.save()
+
+@reversion.register()
+class BookFigure(models.Model):
+    """
+    Enhanced Book Figure model with versioning
+    """
+    chapter = models.ForeignKey(
+        BookChapter,
+        on_delete=models.CASCADE,
+        related_name='figures',
+        verbose_name='Chapter'
+    )
+    figure_number = models.PositiveIntegerField(verbose_name='Figure Number')
+    title = models.CharField(max_length=200, verbose_name='Figure Title')
+    description = models.TextField(blank=True, verbose_name='Description')
+    image = models.ImageField(
+        upload_to='book_figures/%Y/%m/%d/',
+        verbose_name='Image File'
+    )
+    position = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Position in Chapter'
+    )
+    source = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Source/Credit'
+    )
+    caption = models.TextField(
+        blank=True,
+        verbose_name='Caption'
+    )
+    license = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='License'
+    )
+
+    class Meta:
+        verbose_name = 'Book Figure'
+        verbose_name_plural = 'Book Figures'
+        ordering = ['position']
+
+    def __str__(self):
+        return f"Figure {self.figure_number}: {self.title} ({self.chapter.title})"
+
+    def save(self, *args, **kwargs):
+        if not self.figure_number:
+            # Auto-assign figure number
+            last_figure = BookFigure.objects.filter(chapter=self.chapter).order_by('-figure_number').first()
+            self.figure_number = last_figure.figure_number + 1 if last_figure else 1
+        super().save(*args, **kwargs)
+
+@reversion.register()
+class BookTable(models.Model):
+    """
+    Enhanced Book Table model with versioning
+    """
+    chapter = models.ForeignKey(
+        BookChapter,
+        on_delete=models.CASCADE,
+        related_name='tables',
+        verbose_name='Chapter'
+    )
+    table_number = models.PositiveIntegerField(verbose_name='Table Number')
+    title = models.CharField(max_length=200, verbose_name='Table Title')
+    content = HTMLField(verbose_name='Table Content', blank=True)
+    position = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Position in Chapter'
+    )
+    notes = models.TextField(blank=True, verbose_name='Notes')
+    source = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Source'
+    )
+    caption = models.TextField(
+        blank=True,
+        verbose_name='Caption'
+    )
+
+    class Meta:
+        verbose_name = 'Book Table'
+        verbose_name_plural = 'Book Tables'
+        ordering = ['position']
+
+    def __str__(self):
+        return f"Table {self.table_number}: {self.title} ({self.chapter.title})"
+
+    def save(self, *args, **kwargs):
+        if not self.table_number:
+            # Auto-assign table number
+            last_table = BookTable.objects.filter(chapter=self.chapter).order_by('-table_number').first()
+            self.table_number = last_table.table_number + 1 if last_table else 1
+        super().save(*args, **kwargs)
+
+@reversion.register()
+class TranslatedBook(models.Model):
+    """
+    Enhanced Translated Book model
+    """
+    project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='translatebooks', verbose_name='Project' )
+    # Translation metadata
+    title = models.CharField(max_length=500, verbose_name='Title')
+    original_title = models.CharField(max_length=200, verbose_name='Original Title')
+    original_language = models.CharField(max_length=100, verbose_name='Original Language')
+    publisher = models.CharField(max_length=200, verbose_name='Publisher')
+    publish_date = models.DateField(verbose_name='Publish Date', null=True, blank=True)
+    isbn = models.CharField(max_length=100, verbose_name='ISBN', blank=True)
+    isbn_13 = models.CharField(max_length=100, verbose_name='ISBN-13', blank=True)
+    page_count = models.PositiveIntegerField(verbose_name='Page Count', null=True, blank=True)
+    translator = models.ManyToManyField(
+        Author,
+        through='TranslationAuthorship',
+        verbose_name='Translators'
+    )
+    original_author = models.CharField(max_length=200, verbose_name='Original Author')
+    is_published = models.BooleanField(default=False, verbose_name='Published')
+    cover_image = models.ImageField(
+        upload_to='translated_book_covers/%Y/%m/%d/',
+        null=True,
+        blank=True,
+        verbose_name='Cover Image'
+    )
+    
+    # Translation structure fields
+    translator_preface = HTMLField(verbose_name='Translator Preface', blank=True)
+    original_preface = HTMLField(verbose_name='Original Preface', blank=True)
+    introduction = HTMLField(verbose_name='Introduction', blank=True)
+    conclusion = HTMLField(verbose_name='Conclusion', blank=True)
+    bibliography = HTMLField(verbose_name='Bibliography', blank=True)
+    index = HTMLField(verbose_name='Index', blank=True)
+    
+    # Rights and permissions
+    translation_rights_holder = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Translation Rights Holder'
+    )
+    translation_rights_year = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Translation Rights Year'
+    )
+    royalty_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.0,
+        verbose_name='Royalty Percentage'
+    )
+
+    class Meta:
+        verbose_name = 'Translated Book'
+        verbose_name_plural = 'Translated Books'
+
+    def __str__(self):
+        return f"Translated Book: {self.title}"
+
+    def get_chapters(self):
+        """Returns all chapters ordered by their number"""
+        return self.chapters.all().order_by('chapter_number')
+
+    def total_chapters(self):
+        """Returns total number of chapters"""
+        return self.chapters.count()
+
+class TranslationAuthorship(models.Model):
+    """
+    Through model for TranslatedBook-Translator relationship
+    """
+    ROLES = (
+        ('translator', 'Translator'),
+        ('editor', 'Editor'),
+        ('proofreader', 'Proofreader'),
+    )
+    
+    book = models.ForeignKey(
+        TranslatedBook,
+        on_delete=models.CASCADE,
+        verbose_name='Book'
+    )
+    translator = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        verbose_name='Translator'
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=ROLES,
+        default='translator',
+        verbose_name='Role'
+    )
+    chapters = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Chapters Translated'
+    )
+    royalty_share = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.0,
+        verbose_name='Royalty Share Percentage'
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Order in Listing'
+    )
+
+    class Meta:
+        verbose_name = 'Translation Authorship'
+        verbose_name_plural = 'Translation Authorships'
+        ordering = ['order']
+        unique_together = ('book', 'translator', 'role')
+
+    def __str__(self):
+        return f"{self.translator.full_name()} ({self.get_role_display()}) for {self.book.title}"
+
+## Research Proposal Models ##
+
+@reversion.register()
+class ResearchProposal(models.Model):
+    """
+    Enhanced Research Proposal model
+    """
+    project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='researchproposal', verbose_name='Project' )
+    # Basic info
+    title = models.CharField(max_length=200, verbose_name='Title')
+    budget = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name='Budget',
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)]
+    )
+    duration_months = models.PositiveIntegerField(
+        verbose_name='Duration (months)',
+        null=True,
+        blank=True
+    )
+    sponsor = models.CharField(max_length=200, verbose_name='Sponsor', blank=True)
+    grant_number = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Grant Number'
+    )
+    submission_deadline = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Submission Deadline'
+    )
+    
+    # Content sections
+    problem_statement = HTMLField(verbose_name='Problem Statement', blank=True)
+    research_importance = HTMLField(verbose_name='Research Importance', blank=True)
+    literature_review = HTMLField(verbose_name='Literature Review', blank=True)
+    research_objectives = HTMLField(verbose_name='Research Objectives', blank=True)
+    research_methodology = HTMLField(verbose_name='Research Methodology', blank=True)
+    expected_results = HTMLField(verbose_name='Expected Results', blank=True)
+    
+    # Team information
+    principal_investigator = models.ForeignKey(
+        Author,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='led_proposals',
+        verbose_name='Principal Investigator'
+    )
+    co_investigators = models.ManyToManyField(
+        Author,
+        related_name='collaborated_proposals',
+        blank=True,
+        verbose_name='Co-Investigators'
+    )
+    
+    # Status
+    submission_status = models.CharField(
+        max_length=20,
+        choices=(
+            ('draft', 'Draft'),
+            ('submitted', 'Submitted'),
+            ('under_review', 'Under Review'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+            ('funded', 'Funded'),
+        ),
+        default='draft',
+        verbose_name='Status'
+    )
+    
+    # Template reference
+    template = models.ForeignKey(
+        'ResearchProposalTemplate',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        verbose_name='Proposal Template'
+    )
+    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='researchproposal')
+
+    def get_sections(self):
+        """Returns all sections ordered by their position"""
+        return self.sections.all().order_by('position')
+
+    def create_from_template(self, template_id):
+        """Create proposal sections from a template"""
+        template = ResearchProposalTemplate.objects.get(id=template_id)
+        self.template = template
+        self.save()
+        
+        for section in template.sections.all().order_by('default_position'):
+            ResearchProposalSection.objects.create(
+                proposal=self,
+                section_type=section.section_type,
+                title=section.title,
+                position=section.default_position,
+                guidance=section.description
+            )
+
+    class Meta:
+        verbose_name = 'Research Proposal'
+        verbose_name_plural = 'Research Proposals'
+
+    def __str__(self):
+        return f"Research Proposal: {self.title}"
+
+@reversion.register()
+class ResearchProposalSection(models.Model):
+    """
+    Enhanced Research Proposal Section model
+    """
+    SECTION_TYPES = (
+        ('title', 'Title Page'),
+        ('abstract', 'Abstract'),
+        ('introduction', 'Introduction'),
+        ('problem_statement', 'Problem Statement'),
+        ('research_questions', 'Research Questions'),
+        ('objectives', 'Objectives'),
+        ('significance', 'Significance of Research'),
+        ('literature_review', 'Literature Review'),
+        ('methodology', 'Methodology'),
+        ('research_design', 'Research Design'),
+        ('data_collection', 'Data Collection Methods'),
+        ('data_analysis', 'Data Analysis Methods'),
+        ('timeline', 'Timeline/Schedule'),
+        ('budget', 'Budget'),
+        ('expected_outcomes', 'Expected Outcomes'),
+        ('appendices', 'Appendices'),
+        ('team', 'Research Team'),
+        ('facilities', 'Facilities and Resources'),
+    )
+    
+    proposal = models.ForeignKey(
+        ResearchProposal,
+        on_delete=models.CASCADE,
+        related_name='sections',
+        verbose_name='Research Proposal'
+    )
+    section_type = models.CharField(
+        max_length=100,
+        choices=SECTION_TYPES,
+        verbose_name='Section Type'
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Section Title'
+    )
+    content = HTMLField(verbose_name='Content', blank=True)
+    position = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Position in Proposal'
+    )
+    guidance = models.TextField(
+        blank=True,
+        verbose_name='Writing Guidance'
+    )
+    word_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Word Count'
+    )
+    
+    class Meta:
+        verbose_name = 'Research Proposal Section'
+        verbose_name_plural = 'Research Proposal Sections'
+        ordering = ['position']
+
+    def __str__(self):
+        return f"{self.get_section_type_display()} - {self.proposal.title}"
+
+    def save(self, *args, **kwargs):
+        # Calculate word count
+        if self.content:
+            self.word_count = len(re.sub(r'<[^>]+>', '', self.content).split())
+        super().save(*args, **kwargs)
+
+class ResearchProposalTemplate(models.Model):
+    """
+    Enhanced Research Proposal Template model
+    """
+    name = models.CharField(max_length=100, verbose_name='Template Name')
+    description = models.TextField(blank=True, verbose_name='Description')
+    disciplines = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Applicable Disciplines'
+    )
+    funding_agency = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Funding Agency'
+    )
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name='Default Template'
+    )
+    
+    sections = models.ManyToManyField(
+        'ResearchProposalTemplateSection',
+        related_name='templates',
+        verbose_name='Sections'
+    )
+    
+    class Meta:
+        verbose_name = 'Research Proposal Template'
+        verbose_name_plural = 'Research Proposal Templates'
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            # Ensure no other default templates
+            ResearchProposalTemplate.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+class ResearchProposalTemplateSection(models.Model):
+    """
+    Enhanced Research Proposal Template Section model
+    """
+    SECTION_TYPES = ResearchProposalSection.SECTION_TYPES
+    
+    section_type = models.CharField(
+        max_length=100,
+        choices=SECTION_TYPES,
+        verbose_name='Section Type'
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Default Title'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description/Guidance'
+    )
+    required = models.BooleanField(
+        default=True,
+        verbose_name='Required Section'
+    )
+    default_position = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Default Position'
+    )
+    word_limit = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Word Limit'
+    )
+    example = models.TextField(
+        blank=True,
+        verbose_name='Example Content'
+    )
+    
+    class Meta:
+        verbose_name = 'Proposal Template Section'
+        verbose_name_plural = 'Proposal Template Sections'
+        ordering = ['default_position']
+        
+    def __str__(self):
+        return f"{self.get_section_type_display()} (Required: {self.required})"
+
+
+@reversion.register()
+class Thesis(models.Model):
+    """
+    Enhanced Thesis model with comprehensive academic fields
+    """
+    project = models.ForeignKey( Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='thesis', verbose_name='Project' )
+    title = models.CharField(max_length=500, verbose_name='Title')
+    DEGREE_TYPES = (
+        ('bachelor', "Bachelor's Thesis"),
+        ('master', "Master's Thesis"),
+        ('phd', 'PhD Dissertation'),
+        ('habilitation', 'Habilitation Thesis'),
+    )
+    
+    # Thesis metadata
+    student_name = models.CharField(max_length=100, verbose_name='Student Name')
+    student_id = models.CharField(max_length=50, blank=True, verbose_name='Student ID')
+    university = models.CharField(max_length=200, verbose_name='University')
+    department = models.CharField(max_length=200, blank=True, verbose_name='Department')
+    faculty = models.CharField(max_length=200, blank=True, verbose_name='Faculty')
+    degree_type = models.CharField(
+        max_length=20,
+        choices=DEGREE_TYPES,
+        verbose_name='Degree Type'
+    )
+    defense_date = models.DateField(verbose_name='Defense Date', null=True, blank=True)
+    submission_date = models.DateField(verbose_name='Submission Date', null=True, blank=True)
+    supervisor = models.ForeignKey(
+        Author,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='supervised_theses',
+        verbose_name='Supervisor'
+    )
+    advisor = models.ForeignKey(
+        Author,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='advised_theses',
+        verbose_name='Advisor'
+    )
+    committee = models.ManyToManyField(
+        Author,
+        related_name='committee_theses',
+        blank=True,
+        verbose_name='Committee Members'
+    )
+    grade = models.CharField(max_length=50, verbose_name='Grade', blank=True)
+    thesis_file = models.FileField(
+        upload_to='theses/%Y/%m/%d/',
+        verbose_name='Thesis File',
+        null=True,
+        blank=True
+    )
+    keywords = models.ManyToManyField(Keyword, blank=True, verbose_name='Keywords', related_name='theses')
+    
+    # Template reference
+    template = models.ForeignKey(
+        'ThesisTemplate',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        verbose_name='Thesis Template'
+    )
+    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='thesis')
+    def get_sections(self):
+        """Returns all sections ordered by their position"""
+        return self.sections.all().order_by('position')
+
+    def get_chapters(self):
+        """Returns all chapters ordered by their number"""
+        return self.chapters.all().order_by('chapter_number')
+
+    def create_from_template(self, template_id):
+        """Create thesis sections from a template"""
+        template = ThesisTemplate.objects.get(id=template_id)
+        self.template = template
+        self.save()
+        
+        for section in template.sections.all().order_by('default_position'):
+            ThesisSection.objects.create(
+                thesis=self,
+                section_type=section.section_type,
+                title=section.title,
+                position=section.default_position,
+                guidance=section.description
+            )
+
+    class Meta:
+        verbose_name = 'Thesis'
+        verbose_name_plural = 'Theses'
+
+    def __str__(self):
+        return f"Thesis: {self.title}"
+
+@reversion.register()
+class ThesisSection(models.Model):
+    """
+    Enhanced Thesis Section model
+    """
+    SECTION_TYPES = (
+        ('approval', 'Approval Page'),
+        ('dedication', 'Dedication'),
+        ('acknowledgments', 'Acknowledgments'),
+        ('abstract', 'Abstract'),
+        ('table_of_contents', 'Table of Contents'),
+        ('list_of_tables', 'List of Tables'),
+        ('list_of_figures', 'List of Figures'),
+        ('list_of_abbreviations', 'List of Abbreviations'),
+        ('list_of_symbols', 'List of Symbols'),
+        ('introduction', 'Introduction'),
+        ('literature_review', 'Literature Review'),
+        ('methodology', 'Methodology'),
+        ('results', 'Results'),
+        ('discussion', 'Discussion'),
+        ('conclusion', 'Conclusion'),
+        ('recommendations', 'Recommendations'),
+        ('appendices', 'Appendices'),
+        ('cv', 'Curriculum Vitae'),
+    )
+    
+    thesis = models.ForeignKey(
+        Thesis,
+        on_delete=models.CASCADE,
+        related_name='sections',
+        verbose_name='Thesis'
+    )
+    section_type = models.CharField(
+        max_length=100,
+        choices=SECTION_TYPES,
+        verbose_name='Section Type'
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Section Title'
+    )
+    content = HTMLField(verbose_name='Content', blank=True)
+    position = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Position in Thesis'
+    )
+    guidance = models.TextField(
+        blank=True,
+        verbose_name='Writing Guidance'
+    )
+    word_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Word Count'
+    )
+    
+    class Meta:
+        verbose_name = 'Thesis Section'
+        verbose_name_plural = 'Thesis Sections'
+        ordering = ['position']
+
+    def __str__(self):
+        return f"{self.get_section_type_display()} - {self.thesis.title}"
+
+    def save(self, *args, **kwargs):
+        # Calculate word count
+        if self.content:
+            self.word_count = len(re.sub(r'<[^>]+>', '', self.content).split())
+        super().save(*args, **kwargs)
+
+@reversion.register()
+class ThesisChapter(models.Model):
+    """
+    Enhanced Thesis Chapter model
+    """
+    thesis = models.ForeignKey(
+        Thesis,
+        on_delete=models.CASCADE,
+        related_name='chapters',
+        verbose_name='Thesis'
+    )
+    chapter_number = models.PositiveIntegerField(verbose_name='Chapter Number')
+    title = models.CharField(max_length=200, verbose_name='Chapter Title')
+    summary = models.TextField(blank=True, verbose_name='Chapter Summary')
+    word_count = models.PositiveIntegerField(default=0, verbose_name='Word Count')
+    thesis_status = models.CharField(
+        max_length=20,
+        choices=(
+            ('draft', 'Draft'),
+            ('in_progress', 'In Progress'),
+            ('completed', 'Completed'),
+            ('approved', 'Approved'),
+        ),
+        default='draft',
+        verbose_name='Status'
+    )
+    
+    class Meta:
+        verbose_name = 'Thesis Chapter'
+        verbose_name_plural = 'Thesis Chapters'
+        ordering = ['chapter_number']
+
+    def __str__(self):
+        return f"Chapter {self.chapter_number}: {self.title}"
+
+    def save(self, *args, **kwargs):
+        # Calculate word count from sections
+        if self.sections.exists():
+            self.word_count = sum(section.word_count for section in self.sections.all())
+        super().save(*args, **kwargs)
+
+class ThesisTemplate(models.Model):
+    """
+    Enhanced Thesis Template model
+    """
+    name = models.CharField(max_length=100, verbose_name='Template Name')
+    description = models.TextField(blank=True, verbose_name='Description')
+    university = models.CharField(max_length=200, verbose_name='University')
+    department = models.CharField(max_length=200, blank=True, verbose_name='Department')
+    faculty = models.CharField(max_length=200, blank=True, verbose_name='Faculty')
+    degree_type = models.CharField(
+        max_length=20,
+        choices=Thesis.DEGREE_TYPES,
+        verbose_name='Degree Type'
+    )
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name='Default Template'
+    )
+    
+    sections = models.ManyToManyField(
+        'ThesisTemplateSection',
+        related_name='templates',
+        verbose_name='Sections'
+    )
+    
+    class Meta:
+        verbose_name = 'Thesis Template'
+        verbose_name_plural = 'Thesis Templates'
+
+    def __str__(self):
+        return f"{self.name} ({self.university})"
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            # Ensure no other default for this degree type
+            ThesisTemplate.objects.filter(
+                degree_type=self.degree_type,
+                is_default=True
+            ).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+class ThesisTemplateSection(models.Model):
+    """
+    Enhanced Thesis Template Section model
+    """
+    SECTION_TYPES = ThesisSection.SECTION_TYPES
+    
+    section_type = models.CharField(
+        max_length=100,
+        choices=SECTION_TYPES,
+        verbose_name='Section Type'
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Default Title'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='Description/Guidance'
+    )
+    required = models.BooleanField(
+        default=True,
+        verbose_name='Required Section'
+    )
+    default_position = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Default Position'
+    )
+    word_limit = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Word Limit'
+    )
+    example = models.TextField(
+        blank=True,
+        verbose_name='Example Content'
+    )
+    
+    class Meta:
+        verbose_name = 'Thesis Template Section'
+        verbose_name_plural = 'Thesis Template Sections'
+        ordering = ['default_position']
+        
+    def __str__(self):
+        return f"{self.get_section_type_display()} (Required: {self.required})"
+
+
+
+# Notification Models ##
 
 class Notification(models.Model):
     """
@@ -2181,3 +2079,15 @@ class Webhook(models.Model):
 
     def __str__(self):
         return f"Webhook: {self.name} ({self.target_url})"
+
+ ## Reference Models ##
+class Reference(models.Model):
+    type=( ('article', 'مقاله'), ('book', 'کتاب'), ('thesis', 'پایان‌نامه'), )
+    cited_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name='cited_references',limit_choices_to={'model__in': [m[0] for m in type]},default='article')
+    cited_object_id = models.PositiveIntegerField()
+    cited_object = GenericForeignKey('cited_content_type', 'cited_object_id')
+    citing_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name='citing_references')
+    citing_object_id = models.PositiveIntegerField()
+    citing_object = GenericForeignKey('citing_content_type', 'citing_object_id')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
+    

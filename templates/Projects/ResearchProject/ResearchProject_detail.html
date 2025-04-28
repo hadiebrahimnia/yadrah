@@ -1,10 +1,11 @@
-{% extends 'base/base.html' %} 
-{% block content %} 
-{% include "base/title.html" with title=research_project.project.title subtitle=research_project.organization|add:"/"|add:research_project.supervisor button_text="ویرایش" button_link=research_project.get_absolute_url|add:"update/" %} 
+{% extends 'base/base.html' %}
+{% block content %}
+{% include "base/title.html" with title=research_project.project.title subtitle=research_project.organization|add:"/"|add:research_project.supervisor button_text="ویرایش" button_link=research_project.get_absolute_url|add:"update/" %}
+{{references}}
+
 {% for section in sections %}
 <div class="row">
-  <div
-    class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
+  <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
     <div class="row align-items-end">
       <div class="col-lg-12">
         <div class="page-header-title">
@@ -21,8 +22,7 @@
 </div>
 {% endfor %}
 <div class="row">
-  <div
-    class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
+  <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
     <div class="row align-items-end">
       <div class="col-lg-12">
         <div class="page-header-title">
@@ -49,26 +49,13 @@
                 <thead>
                   <tr class="text-center">
                     <th class="">ردیف</th>
-                    <th class="">
-                      <input
-                        type="text"
-                        class="form-control filter-input-Article_list_Table"
-                        data-column="1"
-                        placeholder="کلید استناد" />
-                    </th>
+                    
                     <th class="">
                       <input
                         type="text"
                         class="form-control filter-input-Article_list_Table"
                         data-column="2"
                         placeholder="عنوان" />
-                    </th>
-                    <th class="">
-                      <input
-                        type="text"
-                        class="form-control filter-input-Article_list_Table"
-                        data-column="3"
-                        placeholder="نوع" />
                     </th>
                     <th class="">
                       <input
@@ -81,30 +68,18 @@
                   </tr>
                 </thead>
                 <tbody>
-
-                  {% for reference in references %}
+                  {% for item in detailed_references %}
+                  
                   <tr class="text-center">
                     <td>{{ forloop.counter }}</td>
-                    <td>{{ reference.citation_key }}</td>
+                    <td>{{ item.title }} </td>
+                    <td>{{ item.doi|default:"-" }}</td>
                     <td>
-                      {% if reference.reference_type == 'article' %}
-                        {{ reference.article.title }}
-                      {% elif reference.reference_type == 'book' %}
-                        {{ reference.book.project.title }}
-                      {% elif reference.reference_type == 'thesis' %}
-                        {{ reference.thesis.project.title }}
-                      {% endif %}
-                    </td>
-                    <td>{{ reference.get_reference_type_display }}</td>
-                    <td>{{ reference.doi }}</td>
-                    <td>
-                      <a
-                        href="/ResearchProject/{{project.id}}"
-                        type="button"
-                        class="btn outlined c-second o-second btn-block fnt-xxs"
-                        >ویرایش
-                        <div class="ripple-container"></div
-                      ></a>
+                      <button 
+                        onclick="removeReference({{ item.id }})"
+                        class="btn outlined c-danger o-danger btn-block fnt-xxs">
+                        حذف
+                      </button>
                     </td>
                   </tr>
                   {% endfor %}
@@ -118,8 +93,9 @@
   </div>
 </div>
 
-{% include "base/modal.html" with modal_id="NewReference" modal_label="exampleModalLabel" modal_title="منبع جدید" modal_body="<div class=\"form-group bmd-form-group\"> <label class=\"bmd-label-static\">DOI مقاله را وارد کنید</label> <input type=\"type\" class=\"form-control\" placeholder=\"DOI\" id=\"doiInput\" /> </div>" modal_action_button=True modal_action_text="ذخیره" modal_action_type="button" %}
-{% endblock %} 
+{% include "base/modal.html" with modal_id="NewReference" modal_label="exampleModalLabel" modal_title="منبع جدید" modal_body="<div class='form-group bmd-form-group'> <label class='bmd-label-static'>DOI مقاله را وارد کنید</label> <input type='text' class='form-control' placeholder='مثال: 10.1234/abc123' id='doiInput' /> <div id='doiResult' class='mt-2'></div> </div>" modal_action_button=True modal_action_text="ذخیره" modal_action_type="button" %}
+{% endblock %}
+
 {% block scripts %}
 <script>
   $(document).ready(function () {
@@ -128,37 +104,41 @@
       searching: true,
       ordering: false,
       info: false,
+      language: {
+        url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/fa.json'
+      }
     });
     
     $(".filter-input-Article_list_Table").on("keyup change", function () {
       table.column($(this).data("column")).search(this.value).draw();
     });
 
-    $('#NewReference').click(function() {
+    $('#NewReference').on('click', function() {
       const doi = $('#doiInput').val().trim();
       if (!doi) {
         showAlert('لطفاً DOI را وارد نمایید', { type: 'danger', duration: 3000 });
         return;
       }
 
-      const projectId = {{ research_project.project.id }};
+      const projectId = {{ research_project.id }};
+      const contentType = 'research-projects'; // از URL تشخیص داده می‌شود
+      
       $.ajax({
-        url: `/references/add-with-doi/${projectId}/`,
+        url: `/${contentType}/${projectId}/references/add-with-doi/`,
         method: 'POST',
         headers: {
-          'X-CSRFToken': '{{ csrf_token }}'
+          'X-CSRFToken': '{{ csrf_token }}',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        data: {
-          'doi': doi
-        },
+        data: `doi=${encodeURIComponent(doi)}`,
         beforeSend: function() {
           $('#doiResult').html('<div class="alert alert-info">در حال پردازش...</div>');
           $('#NewReference').prop('disabled', true);
         },
         success: function(response) {
           if (response.success) {
-            showAlert('عملیات با موفقیت انجام شد', { type: 'success', duration: 3000 });
-            setTimeout(function() { location.reload(); }, 3000);
+            showAlert('منبع با موفقیت اضافه شد', { type: 'success', duration: 3000 });
+            setTimeout(function() { location.reload(); }, 1500);
           } else {
             showAlert(response.error || 'خطای نامشخص', { type: 'danger', duration: 3000 });
           }
@@ -173,5 +153,32 @@
       });
     });
   });
+
+  function removeReference(referenceId) {
+    if (!confirm('آیا از حذف این منبع اطمینان دارید؟')) return;
+    
+    $.ajax({
+      url: `/references/${referenceId}/delete/`,
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      beforeSend: function() {
+        showAlert('در حال حذف منبع...', { type: 'info', duration: 1000 });
+      },
+      success: function(response) {
+        if (response.success) {
+          showAlert('منبع با موفقیت حذف شد', { type: 'success', duration: 3000 });
+          setTimeout(function() { location.reload(); }, 1500);
+        } else {
+          showAlert(response.error || 'خطا در حذف منبع', { type: 'danger', duration: 3000 });
+        }
+      },
+      error: function(xhr) {
+        const error = xhr.responseJSON ? xhr.responseJSON.error : 'خطای سرور';
+        showAlert(error, { type: 'danger', duration: 3000 });
+      }
+    });
+  }
 </script>
 {% endblock %}

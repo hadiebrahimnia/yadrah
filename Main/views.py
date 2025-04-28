@@ -14,6 +14,16 @@ from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth import views as auth_views
 from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse, Http404
+import logging
+from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
+from django.core.exceptions import PermissionDenied
+import re
+from datetime import datetime
+
+
 
 # Main View
 def home_page(request):
@@ -300,6 +310,7 @@ class ResearchProjectListView(ListView):
 
     def get_queryset(self):
         return ResearchProject.objects.select_related('project__owner').all()
+    
 
 class ResearchProjectDetailView(DetailView):
     model = ResearchProject
@@ -309,6 +320,7 @@ class ResearchProjectDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['sections'] = self.object.sections.all()
+        context['references'] = self.object.references.all()
         return context
 
 class ResearchProjectCreateView(LoginRequiredMixin, CreateView):
@@ -409,106 +421,222 @@ class ResearchProjectDeleteView(DeleteView):
 #     template_name = 'thesis_confirm_delete.html'
 #     success_url = reverse_lazy('thesis_list')
 
-@require_POST
-def add_reference_with_doi(request, pk):
-    doi = request.POST.get('doi', '').strip()
-    
-    if not doi:
-        return JsonResponse({'error': 'لطفاً DOI را وارد نمایید'}, status=400)
-    
+def clean_doi(doi):
+    """
+    حذف پیشوندهای غیرضروری از DOI و برگرداندن بخش عددی آن
+    """
+    # استفاده از regex برای استخراج بخش عددی DOI
+    match = re.search(r'(10\.\d{4,9}/.+)', doi)
+    if match:
+        return match.group(1).strip()
+    return doi.strip()
+
+logger = logging.getLogger(__name__)
+def create_article_from_doi(doi):
+    """
+    ایجاد یا بازیابی مقاله بر اساس DOI با استفاده از Crossref API
+    """
     try:
-        project = get_object_or_404(Project, id=pk)
-        existing_reference = Reference.objects.filter(doi=doi).first()
-        
-        if existing_reference:
-            citation, created = Citation.objects.get_or_create(
-                project=project,
-                reference=existing_reference,
-                defaults={'citation_text': f"منبع موجود با DOI: {doi}"}
-            )
-            
-            if not created:
-                return JsonResponse({
-                    'success': True,
-                    'error': 'این منبع قبلاً به پروژه اضافه شده بود',
-                    'citation_key': existing_reference.citation_key
-                })
-            
-            return JsonResponse({
-                'success': True,
-                'error': 'منبع موجود با موفقیت به پروژه اضافه شد',
-                'citation_key': existing_reference.citation_key
-            })
-        
+        doi = clean_doi(doi)
+        # اعتبارسنجی اولیه DOI
+        if not isinstance(doi, str) or not doi.startswith('10.'):
+            raise ValidationError("DOI وارد شده معتبر نیست")
+
+        # بررسی وجود مقاله در دیتابیس
+        existing_article = Article.objects.filter(doi__iexact=doi).first()
+        if existing_article:
+            return existing_article
+
+        # دریافت داده از Crossref
         cr = Crossref()
-        work = cr.works(ids=doi)
-        data = work['message']
+        try:
+            work = cr.works(ids=doi)
+            if not work or 'message' not in work:
+                raise ValidationError("پاسخ نامعتبر از Crossref دریافت شد")
+            data = work['message']
+        except Exception as e:
+            raise ValidationError(f"خطا در دریافت اطلاعات از Crossref: {str(e)}")
+
+        # پردازش اطلاعات مقاله
+        title = str(data.get('title', [''])[0]) or 'بدون عنوان'
+        abstract = str(data.get('abstract', '')) or 'چکیده موجود نیست'
+
         
-        title = data.get('title', [''])[0]
-        if not title:
-            return JsonResponse({'error': 'مقاله با این DOI یافت نشد'}, status=404)
-        
-        authors = data.get('author', [])
-        journal = data.get('container-title', [''])[0]
-        published_date = data.get('published', {}).get('date-parts', [[None]])[0]
-        year = published_date[0] if published_date else None
-        
+        # پردازش تاریخ انتشار
+        pub_date = data.get('published', {}).get('date-parts', [[None]])[0]
+        publish_date = None
+        if pub_date and len(pub_date) >= 1:
+            try:
+                year = int(pub_date[0])
+                publish_date = datetime(year, 1, 1).date()
+            except (ValueError, TypeError):
+                pass
+
+        # ایجاد مقاله جدید
         article = Article.objects.create(
-            title=title,
-            article_type='research',
-            abstract=data.get('abstract', ''),
-            journal=journal,
-            volume=data.get('volume', ''),
-            issue=data.get('issue', ''),
-            pages=data.get('page', ''),
-            doi=doi,
-            publish_date=f"{year}-01-01" if year else None,
-            status='published'
+            title=title[:500],  # محدودیت طول عنوان
+            journal=data.get('container-title', [''])[0][:200] or '',
+            volume=data.get('volume', '')[:50],
+            issue=data.get('issue', '')[:50],
+            pages=data.get('page', '')[:50],
+            doi=doi.lower().strip(),  # نرمالایز DOI
+            publish_date=publish_date,
+            aricale_status='published'
         )
-        
-        for order, author_data in enumerate(authors, start=1):
-            if not (author_data.get('given') and author_data.get('family')):
-                continue
+
+        # پردازش و افزودن نویسندگان
+        for order, author_data in enumerate(data.get('author', []), start=1):
+            try:
+                given_name = author_data.get('given', '').strip()[:100]
+                family_name = author_data.get('family', '').strip()[:100]
                 
-            author, _ = Author.objects.get_or_create(
-                first_name=author_data.get('given', ''),
-                last_name=author_data.get('family', ''),
-                defaults={
-                    'orcid_id': author_data.get('ORCID', ''),
-                    'affiliation': ', '.join(author_data.get('affiliation', [])) 
-                    if author_data.get('affiliation') else ''
-                }
+                if not given_name or not family_name:
+                    continue
+
+                # پردازش ORCID
+                orcid = author_data.get('ORCID', '')
+                if orcid:
+                    orcid = orcid.split('/')[-1][:19]  # فقط ID ORCID
+
+                # ایجاد یا بازیابی نویسنده
+                author, created = Author.objects.get_or_create(
+                    first_name=given_name,
+                    last_name=family_name,
+                    defaults={
+                        'orcid_id': orcid,
+                        'affiliation': ', '.join(
+                            aff.get('name', '')[:100] 
+                            for aff in author_data.get('affiliation', [])
+                        )[:200]
+                    }
+                )
+
+                # ایجاد رابطه نویسندگی
+                ArticleAuthorship.objects.create(
+                    article=article,
+                    author=author,
+                    authorship_order=order,
+                    is_corresponding=order == 1
+                )
+
+            except Exception as e:
+                logger.warning(f"خطا در پردازش نویسنده {order} برای مقاله {doi}: {str(e)}")
+                continue
+
+        logger.info(f"مقاله جدید با DOI {doi} ایجاد شد")
+        return article
+
+    except Exception as e:
+        logger.error(f"خطای بحرانی در ایجاد مقاله از DOI {doi}: {str(e)}")
+        raise ValidationError(f"خطا در ایجاد مقاله: {str(e)}")
+    
+
+CONTENT_TYPE_MODELS = {
+    'articles': Article,
+    'books': Book,
+    'theses': Thesis,
+    'research-projects': ResearchProject
+}
+
+@require_POST
+@transaction.atomic
+def add_reference_with_doi(request, content_type, object_id):
+    """
+    افزودن منبع به یک مدل خاص با استفاده از DOI
+    """
+    try:
+        # اعتبارسنجی کاربر
+        if not request.user.is_authenticated:
+            raise PermissionDenied("دسترسی غیرمجاز")
+
+        # دریافت و اعتبارسنجی DOI
+        doi = request.POST.get('doi', '').strip()
+        if not doi or len(doi) < 10:
+            return JsonResponse(
+                {'success': False, 'error': 'DOI وارد شده معتبر نیست'},
+                status=400
             )
-            
-            ArticleAuthorship.objects.create(
-                article=article,
-                author=author,
-                authorship_order=order,
-                is_corresponding=order == 1
+
+        # تشخیص مدل از روی content_type
+        model = CONTENT_TYPE_MODELS.get(content_type)
+        if not model:
+            return JsonResponse(
+                {'success': False, 'error': 'نوع محتوای درخواست شده معتبر نیست'},
+                status=404
+            )
+
+        # دریافت آبجکت و بررسی مالکیت
+        obj = get_object_or_404(model, id=object_id)
+
+        # بررسی دسترسی کاربر (با فرض وجود فیلد owner در مدل‌ها)
+        if hasattr(obj, 'owner') and obj.owner != request.user:
+            raise PermissionDenied("شما مجوز دسترسی به این منبع را ندارید")
+
+        # دریافت نوع محتوا برای GenericForeignKey
+        content_type = ContentType.objects.get_for_model(model)
+
+        # بررسی تکراری نبودن منبع
+        if Reference.objects.filter(
+            type=content_type,
+            object_id=object_id,
+            doi__iexact=doi
+        ).exists():
+            return JsonResponse(
+                {'success': False, 'error': 'این منبع قبلاً به این پروژه اضافه شده است'},
+                status=400
             )
         
+        # ایجاد یا دریافت مقاله مربوط به DOI
+        try:
+            article = create_article_from_doi(doi)
+
+        except Exception as e:
+            logger.error(f"خطا در ایجاد مقاله از DOI {doi}: {str(e)}")
+            return JsonResponse(
+                {'success': False, 'error': f'خطا در پردازش DOI: {str(e)}'},
+                status=400
+            )
+
+        # ایجاد رکورد مرجع
         reference = Reference.objects.create(
-            citation_key=f"doi_{doi.replace('/', '_')}",
-            reference_type='article',
-            article=article,
-            doi=doi
+            type=content_type,
+            object_id=object_id,
+            doi=doi.lower().strip(),
+            citation_key=generate_citation_key(content_type.model, object_id, doi),
+        )
+
+        logger.info(
+            f"منبع جدید با DOI {doi} به {content_type.model} با ID {object_id} اضافه شد"
         )
 
         return JsonResponse({
             'success': True,
-            'error': 'منبع جدید با موفقیت ایجاد و به پروژه اضافه شد',
             'citation_key': reference.citation_key,
-            'title': title,
-            'authors': ', '.join(
-                f"{a.get('given', '')} {a.get('family', '')}" 
-                for a in authors if a.get('given') and a.get('family')
-            )
+            'article_title': article.title,
+            'article_authors': article.get_authors_display(),
+            'doi': doi
         })
-        
+
+    except PermissionDenied as e:
+        logger.warning(f"دسترسی غیرمجاز: {str(e)}")
+        return JsonResponse(
+            {'success': False, 'error': str(e)},
+            status=403
+        )
     except Exception as e:
-        return JsonResponse({
-            'error': f'خطا در پردازش درخواست: {str(e)}'
-        }, status=500)
+        logger.error(f"خطای غیرمنتظره: {str(e)}")
+        return JsonResponse(
+            {'success': False, 'error': 'خطای سرور داخلی'},
+            status=500
+        )
+
+def generate_citation_key(model_type, object_id, doi):
+    """
+    تولید کلید استناد منحصر به فرد
+    """
+    doi_part = doi.replace('/', '_')[:20]
+    return f"ref_{model_type[:3]}_{object_id}_{doi_part}"
+    
 
 def translate_text(request):
     if request.method == 'POST':
