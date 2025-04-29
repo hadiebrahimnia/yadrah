@@ -141,23 +141,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 TINYMCE_DEFAULT_CONFIG = {
-    "theme": "silver",
-    "skin": "oxide",
-    "height": 600,
-    "menubar": True,
-    "plugins": [
-        "advlist", "autolink", "lists", "link", "image", "charmap", "print", "preview", "anchor",
-        "searchreplace", "visualblocks", "code", "fullscreen",
-        "insertdatetime", "media", "table", "paste", "code", "help", "wordcount"
-    ],
-    "toolbar": "undo redo | formatselect | "
-               "bold italic forecolor backcolor | alignleft aligncenter "
-               "alignright alignjustify | bullist numlist outdent indent | "
-               "removeformat | help",
-    "content_style": "body { font-family: Arial, sans-serif; font-size: 14px }",
-    "branding": False,
-    "resize": True,
+    'height': 400,
+    'width': '100%',
+    'menubar': True,
+    'plugins': 'link image table lists code preview',  # پلاگین‌های معتبر در نسخه 7
+    'toolbar': '''
+        undo redo | blocks | bold italic underline |
+        alignleft aligncenter alignright | bullist numlist outdent indent |
+        table link image | code preview
+    ''',
+    'skin': 'oxide',  # تم پیش‌فرض نسخه 7
+    'content_css': 'default',
 }
-
+TINYMCE_JS_URL = '/static/js/tinymce/tinymce.min.js'  # مسیر نسبی به فایل JS
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'home'

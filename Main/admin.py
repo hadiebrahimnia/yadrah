@@ -111,12 +111,18 @@ class ThesisChapterInline(admin.StackedInline):
 class ReferenceInline(GenericTabularInline):
     model = Reference
     extra = 0
-    ct_field = 'cited_content_type'  # This should match your model's content_type field name
-    ct_fk_field = 'cited_object_id'  # This should match your model's object_id field name
-    fields = ('cited_content_type', 'cited_object_id', 'citing_content_type', 'citing_object_id', 'created_at')
+    ct_field = 'citing_content_type'  # This should match your model's content_type field name
+    ct_fk_field = 'citing_object_id'  # This should match your model's object_id field name
+    fields = ('cited_content_type', 'cited_object_id', 'created_at')
     readonly_fields = ('created_at',)
     verbose_name = 'Reference'
     verbose_name_plural = 'References'
+
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        # Remove ct_field and ct_fk_field from fields if they're present
+        fields = [f for f in fields if f not in (self.ct_field, self.ct_fk_field)]
+        return fields
 
 # Admin Classes
 @admin.register(Profile)

@@ -13,7 +13,7 @@ from django.utils.text import slugify
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-
+import re
 
 ## User Models ##
 class Profile(models.Model):
@@ -397,7 +397,8 @@ class Article(models.Model):
     article_type = models.CharField(
         max_length=100,
         choices=ARTICLE_TYPES,
-        verbose_name='Article Type'
+        verbose_name='Article Type',
+        blank=True,
     )
     subtitle = models.CharField(max_length=300, blank=True, verbose_name='Subtitle')
     keywords = models.ManyToManyField(Keyword, blank=True, verbose_name='Keywords', related_name='articles')
@@ -466,7 +467,7 @@ class Article(models.Model):
         on_delete=models.SET_NULL,
         verbose_name='Article Template'
     )
-    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='articles')
+    references = GenericRelation('Reference', content_type_field='cited_content_type', object_id_field='cited_object_id', related_query_name='articles')
     class Meta:
         verbose_name = 'Article'
         verbose_name_plural = 'Articles'
@@ -811,7 +812,7 @@ class ResearchProject(models.Model):
         on_delete=models.SET_NULL,
         verbose_name='Project Template'
     )
-    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='researchproject')
+    references = GenericRelation('Reference', content_type_field='cited_content_type', object_id_field='cited_object_id', related_query_name='researchproject')
 
     def get_sections(self):
         """Returns all sections ordered by their position"""
@@ -850,19 +851,13 @@ class ResearchProjectSection(models.Model):
     Enhanced Research Project Section model
     """
     SECTION_TYPES = (
-        ('abstract', 'Abstract'),
-        ('introduction', 'Introduction'),
-        ('research_design', 'Research Design'),
-        ('participants', 'Participants'),
+        ('subject', 'Subject'),
+        ('stimuli', 'Stimuli'),
         ('materials', 'Materials/Instruments'),
         ('procedure', 'Procedure'),
-        ('data_collection', 'Data Collection'),
+        ('data_acquisition', 'Data acquisition and analysis'),
         ('data_analysis', 'Data Analysis'),
         ('ethical_considerations', 'Ethical Considerations'),
-        ('results', 'Results'),
-        ('discussion', 'Discussion'),
-        ('conclusion', 'Conclusion'),
-        ('appendices', 'Appendices'),
     )
     
     research_project = models.ForeignKey(
@@ -1040,7 +1035,7 @@ class Book(models.Model):
         blank=True,
         verbose_name='Copyright Year'
     )
-    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='book')
+    references = GenericRelation('Reference', content_type_field='cited_content_type', object_id_field='cited_object_id', related_query_name='book')
     class Meta:
         verbose_name = 'Book'
         verbose_name_plural = 'Books'
@@ -1536,7 +1531,7 @@ class ResearchProposal(models.Model):
         on_delete=models.SET_NULL,
         verbose_name='Proposal Template'
     )
-    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='researchproposal')
+    references = GenericRelation('Reference', content_type_field='cited_content_type', object_id_field='cited_object_id', related_query_name='researchproposal')
 
     def get_sections(self):
         """Returns all sections ordered by their position"""
@@ -1786,7 +1781,7 @@ class Thesis(models.Model):
         on_delete=models.SET_NULL,
         verbose_name='Thesis Template'
     )
-    references = GenericRelation('Reference', content_type_field='cited', object_id_field='cited_id', related_query_name='thesis')
+    references = GenericRelation('Reference', content_type_field='cited_content_type', object_id_field='cited_object_id', related_query_name='thesis')
     def get_sections(self):
         """Returns all sections ordered by their position"""
         return self.sections.all().order_by('position')

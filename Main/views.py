@@ -319,8 +319,50 @@ class ResearchProjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['sections'] = self.object.sections.all()
-        context['references'] = self.object.references.all()
+        
+        # Current research project
+        research_project = self.object
+        
+        # 1. Get citing references
+        citing_references = Reference.objects.filter(
+            citing_content_type=ContentType.objects.get_for_model(ResearchProject),
+            citing_object_id=research_project.id
+        ).select_related('cited_content_type')
+
+        # 2. Get cited references
+        cited_references = Reference.objects.filter(
+            cited_content_type=ContentType.objects.get_for_model(ResearchProject),
+            cited_object_id=research_project.id
+        ).select_related('citing_content_type')
+
+        # Convert to list for better display in template
+        citing_refs_list = []
+        for ref in citing_references:
+            cited_obj = ref.cited_object
+            citing_refs_list.append({
+                'id': ref.id,
+                'object': cited_obj,
+                'type': cited_obj._meta.verbose_name,
+                'created_at': ref.created_at,
+                'sections': cited_obj.get_sections()  # Get sections of the cited object
+            })
+
+        cited_refs_list = []
+        for ref in cited_references:
+            citing_obj = ref.citing_object
+            cited_refs_list.append({
+                'id': ref.id,
+                'object': citing_obj,
+                'type': citing_obj._meta.verbose_name,
+                'created_at': ref.created_at,
+            })
+        
+        context.update({
+            'sections': research_project.sections.all(),
+            'citing_references': citing_refs_list,
+            'cited_references': cited_refs_list,
+        })
+        
         return context
 
 class ResearchProjectCreateView(LoginRequiredMixin, CreateView):
@@ -421,129 +463,104 @@ class ResearchProjectDeleteView(DeleteView):
 #     template_name = 'thesis_confirm_delete.html'
 #     success_url = reverse_lazy('thesis_list')
 
+logger = logging.getLogger(__name__)
 def clean_doi(doi):
-    """
-    حذف پیشوندهای غیرضروری از DOI و برگرداندن بخش عددی آن
-    """
-    # استفاده از regex برای استخراج بخش عددی DOI
+    """حذف پیشوندهای غیرضروری از DOI"""
     match = re.search(r'(10\.\d{4,9}/.+)', doi)
     if match:
         return match.group(1).strip()
     return doi.strip()
 
-logger = logging.getLogger(__name__)
 def create_article_from_doi(doi):
-    """
-    ایجاد یا بازیابی مقاله بر اساس DOI با استفاده از Crossref API
-    """
-    try:
-        doi = clean_doi(doi)
-        # اعتبارسنجی اولیه DOI
-        if not isinstance(doi, str) or not doi.startswith('10.'):
-            raise ValidationError("DOI وارد شده معتبر نیست")
+    """ایجاد یا بازیابی مقاله بر اساس DOI"""
+    doi = clean_doi(doi)
+    
+    # بررسی وجود مقاله در دیتابیس
+    existing_article = Article.objects.filter(doi__iexact=doi).first()
+    if existing_article:
+        return existing_article
 
-        # بررسی وجود مقاله در دیتابیس
-        existing_article = Article.objects.filter(doi__iexact=doi).first()
-        if existing_article:
-            return existing_article
-
-        # دریافت داده از Crossref
-        cr = Crossref()
+    # دریافت داده از Crossref
+    cr = Crossref()
+    work = cr.works(ids=doi)
+    if not work or 'message' not in work:
+        raise ValidationError("پاسخ نامعتبر از Crossref دریافت شد")
+    
+    data = work['message']
+    
+    # پردازش اطلاعات مقاله
+    title = str(data.get('title', [''])[0]) or 'بدون عنوان'
+    abstract = str(data.get('abstract', '')) or 'چکیده موجود نیست'
+    
+    # پردازش تاریخ انتشار
+    pub_date = data.get('published', {}).get('date-parts', [[None]])[0]
+    publish_date = None
+    if pub_date and len(pub_date) >= 1:
         try:
-            work = cr.works(ids=doi)
-            if not work or 'message' not in work:
-                raise ValidationError("پاسخ نامعتبر از Crossref دریافت شد")
-            data = work['message']
-        except Exception as e:
-            raise ValidationError(f"خطا در دریافت اطلاعات از Crossref: {str(e)}")
+            year = int(pub_date[0])
+            publish_date = datetime(year, 1, 1).date()
+        except (ValueError, TypeError):
+            pass
 
-        # پردازش اطلاعات مقاله
-        title = str(data.get('title', [''])[0]) or 'بدون عنوان'
-        abstract = str(data.get('abstract', '')) or 'چکیده موجود نیست'
+    # ایجاد مقاله جدید
+    article = Article.objects.create(
+        title=title[:500],
+        journal=data.get('container-title', [''])[0][:200] or '',
+        volume=data.get('volume', '')[:50],
+        issue=data.get('issue', '')[:50],
+        pages=data.get('page', '')[:50],
+        doi=doi.lower().strip(),
+        publish_date=publish_date,
+        aricale_status='published'
+    )
 
-        
-        # پردازش تاریخ انتشار
-        pub_date = data.get('published', {}).get('date-parts', [[None]])[0]
-        publish_date = None
-        if pub_date and len(pub_date) >= 1:
-            try:
-                year = int(pub_date[0])
-                publish_date = datetime(year, 1, 1).date()
-            except (ValueError, TypeError):
-                pass
-
-        # ایجاد مقاله جدید
-        article = Article.objects.create(
-            title=title[:500],  # محدودیت طول عنوان
-            journal=data.get('container-title', [''])[0][:200] or '',
-            volume=data.get('volume', '')[:50],
-            issue=data.get('issue', '')[:50],
-            pages=data.get('page', '')[:50],
-            doi=doi.lower().strip(),  # نرمالایز DOI
-            publish_date=publish_date,
-            aricale_status='published'
-        )
-
-        # پردازش و افزودن نویسندگان
-        for order, author_data in enumerate(data.get('author', []), start=1):
-            try:
-                given_name = author_data.get('given', '').strip()[:100]
-                family_name = author_data.get('family', '').strip()[:100]
-                
-                if not given_name or not family_name:
-                    continue
-
-                # پردازش ORCID
-                orcid = author_data.get('ORCID', '')
-                if orcid:
-                    orcid = orcid.split('/')[-1][:19]  # فقط ID ORCID
-
-                # ایجاد یا بازیابی نویسنده
-                author, created = Author.objects.get_or_create(
-                    first_name=given_name,
-                    last_name=family_name,
-                    defaults={
-                        'orcid_id': orcid,
-                        'affiliation': ', '.join(
-                            aff.get('name', '')[:100] 
-                            for aff in author_data.get('affiliation', [])
-                        )[:200]
-                    }
-                )
-
-                # ایجاد رابطه نویسندگی
-                ArticleAuthorship.objects.create(
-                    article=article,
-                    author=author,
-                    authorship_order=order,
-                    is_corresponding=order == 1
-                )
-
-            except Exception as e:
-                logger.warning(f"خطا در پردازش نویسنده {order} برای مقاله {doi}: {str(e)}")
+    # پردازش و افزودن نویسندگان
+    for order, author_data in enumerate(data.get('author', []), start=1):
+        try:
+            given_name = author_data.get('given', '').strip()[:100]
+            family_name = author_data.get('family', '').strip()[:100]
+            
+            if not given_name or not family_name:
                 continue
 
-        logger.info(f"مقاله جدید با DOI {doi} ایجاد شد")
-        return article
+            # پردازش ORCID
+            orcid = author_data.get('ORCID', '')
+            if orcid:
+                orcid = orcid.split('/')[-1][:19]
 
-    except Exception as e:
-        logger.error(f"خطای بحرانی در ایجاد مقاله از DOI {doi}: {str(e)}")
-        raise ValidationError(f"خطا در ایجاد مقاله: {str(e)}")
+            # ایجاد یا بازیابی نویسنده
+            author, created = Author.objects.get_or_create(
+                first_name=given_name,
+                last_name=family_name,
+                defaults={
+                    'orcid_id': orcid,
+                    'affiliation': ', '.join(
+                        aff.get('name', '')[:100] 
+                        for aff in author_data.get('affiliation', [])
+                    )[:200]
+                }
+            )
+
+            # ایجاد رابطه نویسندگی
+            ArticleAuthorship.objects.create(
+                article=article,
+                author=author,
+                authorship_order=order,
+                is_corresponding=order == 1
+            )
+
+        except Exception as e:
+            logger.warning(f"خطا در پردازش نویسنده {order}: {str(e)}")
+            continue
+
+    return article
     
 
-CONTENT_TYPE_MODELS = {
-    'articles': Article,
-    'books': Book,
-    'theses': Thesis,
-    'research-projects': ResearchProject
-}
-
+CONTENT_TYPE_MAPPING = { 'article': Article, 'book': Book, 'thesis': Thesis, 'researchproject': ResearchProject, 'researchproposal': ResearchProposal, 'translatedbook': TranslatedBook }
 @require_POST
 @transaction.atomic
 def add_reference_with_doi(request, content_type, object_id):
-    """
-    افزودن منبع به یک مدل خاص با استفاده از DOI
-    """
+
     try:
         # اعتبارسنجی کاربر
         if not request.user.is_authenticated:
@@ -556,40 +573,25 @@ def add_reference_with_doi(request, content_type, object_id):
                 {'success': False, 'error': 'DOI وارد شده معتبر نیست'},
                 status=400
             )
-
-        # تشخیص مدل از روی content_type
-        model = CONTENT_TYPE_MODELS.get(content_type)
-        if not model:
+        # تشخیص مدل citing از روی content_type
+        citing_model = CONTENT_TYPE_MAPPING.get(content_type.lower())
+        print(citing_model)
+        if not citing_model:
             return JsonResponse(
                 {'success': False, 'error': 'نوع محتوای درخواست شده معتبر نیست'},
                 status=404
             )
 
-        # دریافت آبجکت و بررسی مالکیت
-        obj = get_object_or_404(model, id=object_id)
-
-        # بررسی دسترسی کاربر (با فرض وجود فیلد owner در مدل‌ها)
-        if hasattr(obj, 'owner') and obj.owner != request.user:
+        # دریافت آبجکت citing و بررسی مالکیت
+        citing_obj = get_object_or_404(citing_model, id=object_id)
+        
+        # بررسی دسترسی کاربر
+        if hasattr(citing_obj, 'owner') and citing_obj.owner != request.user:
             raise PermissionDenied("شما مجوز دسترسی به این منبع را ندارید")
 
-        # دریافت نوع محتوا برای GenericForeignKey
-        content_type = ContentType.objects.get_for_model(model)
-
-        # بررسی تکراری نبودن منبع
-        if Reference.objects.filter(
-            type=content_type,
-            object_id=object_id,
-            doi__iexact=doi
-        ).exists():
-            return JsonResponse(
-                {'success': False, 'error': 'این منبع قبلاً به این پروژه اضافه شده است'},
-                status=400
-            )
-        
-        # ایجاد یا دریافت مقاله مربوط به DOI
+        # ایجاد یا دریافت مقاله مربوط به DOI (cited object)
         try:
-            article = create_article_from_doi(doi)
-
+            cited_article = create_article_from_doi(doi)
         except Exception as e:
             logger.error(f"خطا در ایجاد مقاله از DOI {doi}: {str(e)}")
             return JsonResponse(
@@ -599,22 +601,31 @@ def add_reference_with_doi(request, content_type, object_id):
 
         # ایجاد رکورد مرجع
         reference = Reference.objects.create(
-            type=content_type,
-            object_id=object_id,
-            doi=doi.lower().strip(),
-            citation_key=generate_citation_key(content_type.model, object_id, doi),
+            citing_content_type=ContentType.objects.get_for_model(citing_model),
+            citing_object_id=object_id,
+            cited_content_type=ContentType.objects.get_for_model(Article),
+            cited_object_id=cited_article.id,
+            created_at=timezone.now()
         )
 
         logger.info(
-            f"منبع جدید با DOI {doi} به {content_type.model} با ID {object_id} اضافه شد"
+            f"ارجاع جدید ایجاد شد: {content_type} {object_id} به مقاله {cited_article.id}"
         )
 
         return JsonResponse({
             'success': True,
-            'citation_key': reference.citation_key,
-            'article_title': article.title,
-            'article_authors': article.get_authors_display(),
-            'doi': doi
+            'reference_id': reference.id,
+            'cited_article': {
+                'id': cited_article.id,
+                'title': cited_article.title,
+                'authors': cited_article.get_authors_display(),
+                'doi': cited_article.doi
+            },
+            'citing_object': {
+                'type': content_type,
+                'id': object_id,
+                'title': str(citing_obj)
+            }
         })
 
     except PermissionDenied as e:
@@ -624,7 +635,7 @@ def add_reference_with_doi(request, content_type, object_id):
             status=403
         )
     except Exception as e:
-        logger.error(f"خطای غیرمنتظره: {str(e)}")
+        logger.error(f"خطای غیرمنتظره: {str(e)}", exc_info=True)
         return JsonResponse(
             {'success': False, 'error': 'خطای سرور داخلی'},
             status=500

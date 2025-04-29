@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
+
 {% block content %}
 {% include "base/title.html" with title=research_project.project.title subtitle=research_project.organization|add:"/"|add:research_project.supervisor button_text="ویرایش" button_link=research_project.get_absolute_url|add:"update/" %}
-{{references}}
 
 {% for section in sections %}
 <div class="row">
@@ -20,7 +20,30 @@
     </div>
   </div>
 </div>
+
+  <!-- Check for matching sections in cited references -->
+  {% for ref in citing_references %}
+    {% for cited_section in ref.sections %}
+      {% if cited_section.section_type == section.section_type %}
+      <div class="row">
+        <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
+          <div class="row align-items-end">
+            <div class="col-lg-12">
+              <div class="page-header-title">
+                <div class="d-inline">
+                  <h4 class="lite-text">Section from {{ ref.object.title }}:</h4>
+                  <p><strong>{{ cited_section.title }}</strong>: {{ cited_section.content|safe }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
 {% endfor %}
+
 <div class="row">
   <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
     <div class="row align-items-end">
@@ -45,11 +68,17 @@
             </div>
 
             <span class="lite-text">
-              <table id="Article_list_Table" class="display">
+              <table id="Article_list_Table" class="display text-center">
                 <thead>
-                  <tr class="text-center">
+                  <tr>
                     <th class="">ردیف</th>
-                    
+                    <th class="">
+                      <input
+                        type="text"
+                        class="form-control filter-input-Article_list_Table"
+                        data-column="1"
+                        placeholder="نوع" />
+                    </th>
                     <th class="">
                       <input
                         type="text"
@@ -61,22 +90,26 @@
                       <input
                         type="text"
                         class="form-control filter-input-Article_list_Table"
-                        data-column="4"
+                        data-column="3"
                         placeholder="DOI" />
                     </th>
-                    <th class="">ویرایش</th>
+                    <th class="">عملیات</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for item in detailed_references %}
-                  
-                  <tr class="text-center">
+                  {% for ref in citing_references %}
+                  <tr>
                     <td>{{ forloop.counter }}</td>
-                    <td>{{ item.title }} </td>
-                    <td>{{ item.doi|default:"-" }}</td>
+                    <td>{{ ref.type }}</td>
+                    <td>
+                      <a href="/admin/Main/article/{{ ref.object.id }}/change/" target="_blank" type="button" class="btn outlined dashed c-dark o-dark btn-block fnt-xxs ">
+                        {{ ref.object.title }}
+                      </a>
+                    </td>
+                    <td>{{ ref.object.doi|default:"-" }}</td>
                     <td>
                       <button 
-                        onclick="removeReference({{ item.id }})"
+                        onclick="removeReference({{ ref.id }})"
                         class="btn outlined c-danger o-danger btn-block fnt-xxs">
                         حذف
                       </button>
@@ -101,7 +134,7 @@
   $(document).ready(function () {
     var table = $("#Article_list_Table").DataTable({
       paging: false,
-      searching: true,
+      searching: false,
       ordering: false,
       info: false,
       language: {
@@ -121,7 +154,7 @@
       }
 
       const projectId = {{ research_project.id }};
-      const contentType = 'research-projects'; // از URL تشخیص داده می‌شود
+      const contentType = 'researchproject'; // از URL تشخیص داده می‌شود
       
       $.ajax({
         url: `/${contentType}/${projectId}/references/add-with-doi/`,
