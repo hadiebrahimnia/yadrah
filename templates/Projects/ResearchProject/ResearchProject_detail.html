@@ -2,9 +2,10 @@
 
 {% block content %}
 {% include "base/title.html" with title=research_project.project.title subtitle=research_project.organization|add:"/"|add:research_project.supervisor button_text="ویرایش" button_link=research_project.get_absolute_url|add:"update/" %}
+<a href="/admin/Main/researchproject/{{ research_project.id }}/change/" target="_blank">صفحه ادمین</a>
 
-{% for section in sections %}
-<div class="row">
+<div class="row" id="contentToExport">
+  {% for section in sections %}
   <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
     <div class="row align-items-end">
       <div class="col-lg-12">
@@ -16,35 +17,32 @@
             </span>
           </div>
         </div>
+
+        <div class="section-content">
+          {% for ref in citing_references %}
+            {% for cited_section in ref.sections %}
+              {% if cited_section.section_type == section.section_type %}
+                <div class="reference-item mb-4" id="ref-content-{{ ref.id }}">
+                  <h6 class="fnt-code text-dir-ltr mb-0 pb-0">
+                    <a href="#ref-row-{{ ref.id }}" class="text-dark">
+                      {{ ref.object.title }}
+                    </a>
+                  </h6>
+                  <hr class="mt-0 mb-4">
+                  <div class="reference-content" style="direction:ltr; text-align:left">
+                    {{ cited_section.content|safe }}
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        </div>
+
       </div>
     </div>
   </div>
-</div>
-
-  <!-- Check for matching sections in cited references -->
-  {% for ref in citing_references %}
-    {% for cited_section in ref.sections %}
-      {% if cited_section.section_type == section.section_type %}
-      <div class="row">
-        <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
-          <div class="row align-items-end">
-            <div class="col-lg-12">
-              <div class="page-header-title">
-                <div class="d-inline">
-
-                  <h4 class="lite-text">Section from {{ ref.object.title }}:</h4>
-                  <p><strong>{{ cited_section.title }}</strong>: {{ cited_section.content|safe }}</p>
-                
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-    {% endfor %}
   {% endfor %}
-{% endfor %}
+</div>
 
 <div class="row">
   <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
@@ -73,43 +71,72 @@
               <table id="Article_list_Table" class="display text-center">
                 <thead>
                   <tr>
-                    <th class="">ردیف</th>
-                    <th class="">
+                    <th class="col-1">ردیف</th>
+                    <th class="col-1">
                       <input
                         type="text"
                         class="form-control filter-input-Article_list_Table"
                         data-column="1"
                         placeholder="نوع" />
                     </th>
-                    <th class="">
+                    <th class="col-3">
                       <input
                         type="text"
                         class="form-control filter-input-Article_list_Table"
                         data-column="2"
                         placeholder="عنوان" />
                     </th>
-                    <th class="">
+                    <th class="col-3">
                       <input
                         type="text"
                         class="form-control filter-input-Article_list_Table"
                         data-column="3"
                         placeholder="DOI" />
                     </th>
-                    <th class="">عملیات</th>
+                    <th class="col-3">اطلاعات مقاله</th>
+                    <th class="col-1">عملیات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for ref in citing_references %}
-                  <tr>
+                  <tr id="ref-row-{{ ref.id }}">
                     <td>{{ forloop.counter }}</td>
                     <td>{{ ref.type }}</td>
-                    <td>
-                      <a href="/admin/Main/article/{{ ref.object.id }}/change/" target="_blank" type="button" class="btn outlined dashed c-dark o-dark btn-block fnt-xxs ">
+                    <td >
                         {{ ref.object.title }}
-                      </a>
                     </td>
-                    <td>{{ ref.object.doi|default:"-" }}</td>
+                    <td style="direction:ltr">{{ ref.object.doi|default:"-" }}</td>
+                    <td class="text-dir-ltr text-left" style="font-size: 0.8rem;">
+                      <div class="mb-1">
+                        <strong>نویسندگان:</strong> 
+                        <span>{{ ref.object.get_authors_display }}</span>
+                      </div>
+                      {% if ref.object.journal %}
+                      <div class="mb-1">
+                        <strong>مجله:</strong> 
+                        <span>{{ ref.object.journal }}</span>
+                      </div>
+                      {% endif %}
+                      {% if ref.object.publish_date %}
+                      <div class="mb-1">
+                        <strong>سال:</strong> 
+                        <span>{{ ref.object.publish_date.year }}</span>
+                      </div>
+                      {% endif %}
+                      {% if ref.object.volume or ref.object.issue %}
+                      <div class="mb-1">
+                        <strong>شماره:</strong> 
+                        <span>
+                          {% if ref.object.volume %}جلد {{ ref.object.volume}}{% endif %}
+                          {% if ref.object.issue %}، شماره {{ ref.object.issue}}{% endif %}
+                        </span>
+                      </div>
+                      {% endif %}
+                    </td>
                     <td>
+                      <a href="/admin/Main/article/{{ ref.object.id }}/change/" target="_blank" class="btn outlined c-info o-info btn-block fnt-xxs mb-1">
+                        ویرایش
+                      </a>
                       <button 
                         onclick="removeReference({{ ref.id }})"
                         class="btn outlined c-danger o-danger btn-block fnt-xxs">
@@ -128,13 +155,14 @@
   </div>
 </div>
 
-{% include "base/modal.html" with modal_id="NewReference" modal_label="exampleModalLabel" modal_title="منبع جدید" modal_body="<div class='form-group bmd-form-group'> <label class='bmd-label-static'>DOI مقاله را وارد کنید</label> <input type='text' class='form-control' placeholder='مثال: 10.1234/abc123' id='doiInput' /> <div id='doiResult' class='mt-2'></div> </div>" modal_action_button=True modal_action_text="ذخیره" modal_action_type="button" %}
+{% include "base/modal.html" with modal_id="NewReference" modal_label="exampleModalLabel" modal_title="منبع جدید" modal_body="<div class='form-group bmd-form-group'> <label class='bmd-label-static'>DOI مقاله را وارد کنید</label> <input type='text' class='form-control' style='direction:ltr' placeholder='مثال: 10.1234/abc123' id='doiInput' /> <div id='doiResult' class='mt-2 text-right'></div> </div>" modal_action_button=True modal_action_text="ذخیره" modal_action_type="button" %}
 {% endblock %}
 
 {% block scripts %}
 <script>
   $(document).ready(function () {
-    var table = $("#Article_list_Table").DataTable({
+    // Initialize DataTable only for references table
+    $("#Article_list_Table").DataTable({
       paging: false,
       searching: false,
       ordering: false,
@@ -145,7 +173,7 @@
     });
     
     $(".filter-input-Article_list_Table").on("keyup change", function () {
-      table.column($(this).data("column")).search(this.value).draw();
+      $("#Article_list_Table").DataTable().column($(this).data("column")).search(this.value).draw();
     });
 
     $('#NewReference').on('click', function() {
@@ -214,6 +242,14 @@
         showAlert(error, { type: 'danger', duration: 3000 });
       }
     });
+  }
+
+  // Smooth scroll to references
+  function scrollToReference(refId) {
+    const element = document.getElementById(refId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 </script>
 {% endblock %}

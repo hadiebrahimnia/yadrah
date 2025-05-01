@@ -1,5 +1,5 @@
 <div class="row m-1 pb-4 mb-3">
-    <div class="col-10 p-2">
+    <div class="col-9 p-2">
         <div class="page-header breadcrumb-header">
             <div class="row align-items-end">
                 <div class="col-12">
@@ -13,11 +13,21 @@
             </div>
         </div>
     </div>
-    <div class="col-2 p-2">
-        <div class="c-grey text-center m-auto col-12">
+    <div class="row col-3 m-auto">
+        <div class="c-grey text-center col-4 p-1">
             <a href="{{ button_link }}" type="button" class="btn outlined dashed c-second o-second btn-block fnt-xxs">
                 {{ button_text }}
             </a>
+        </div>
+        <div class="c-grey text-center  col-4 p-1">
+            <button id="exportPdf" type="button" class="btn outlined dashed c-primary o-primary btn-block fnt-xxs">
+                PDF
+            </button>
+        </div>
+        <div class="c-grey text-center col-4 p-1">
+            <button id="exportWord" type="button" class="btn outlined dashed c-primary o-primary btn-block fnt-xxs">
+                WORD
+            </button>
         </div>
     </div>
 </div>

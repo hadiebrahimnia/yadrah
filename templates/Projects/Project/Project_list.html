@@ -6,20 +6,11 @@
 <table id="ResearchProject_list_Table" class="display">            
     <thead>
         <tr class="text-center">
-            <th class="">ردیف</th>
+            <th class="col-1">ردیف</th>
             <th class="">
                 <input type="text" class="form-control filter-input-ResearchProject_list_Table " data-column="1" placeholder="عنوان">
             </th>
-            <th class="">
-                <input type="text" class="form-control filter-input-ResearchProject_list_Table" data-column="2" placeholder="نام">
-            </th>
-            <th class="">
-                <input type="text" class="form-control filter-input-ResearchProject_list_Table" data-column="3" placeholder="دانشگاه">
-            </th>
-            <th class="">
-                <input type="text" class="form-control filter-input-ResearchProject_list_Table" data-column="4" placeholder="استاد">
-            </th>
-            <th class="">عملیات</th>
+            <th class="col-1">عملیات</th>
         </tr>
     </thead>
     <tbody>
@@ -27,10 +18,7 @@
         {% for project in projects %}
         <tr class="text-center">
             <td>{{ forloop.counter }}</td>
-            <td>{{ value }}</td>
             <td>{{ project.title }}</td>
-            <td>{{ project.organization }}</td>
-            <td>{{ project.supervisor }}</td>
             <td>
                 <a href="/ResearchProject/{{project.id}}" type="button" class="btn outlined c-second o-second btn-block fnt-xxs ">مشاهده<div class="ripple-container"></div></a>
             </td>

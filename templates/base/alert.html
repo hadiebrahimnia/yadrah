@@ -3,40 +3,43 @@
 </div>
 
 <script>
-
     // تنظیمات پیش‌فرض
     const alertDefaults = {
-        type: 'info',       // نوع Alert (danger, warning, success, info)
-        duration: 50000,     // مدت زمان نمایش به میلی‌ثانیه (پیش‌فرض 5 ثانیه)
-        dismissible: true,  // آیا قابلیت بستن دارد؟
-        priority: false     // آیا باید در صدر نمایش داده شود؟
+        type: 'info',
+        duration: 5000,
+        dismissible: true,
+        priority: false
     };
 
-    // تابع اصلی نمایش Alert
     function showAlert(message, options = {}) {
-        // ادغام تنظیمات پیش‌فرض با تنظیمات کاربر
         const config = { ...alertDefaults, ...options };
         
-        // ایجاد عنصر Alert
         const alertEl = document.createElement('div');
         alertEl.className = `alert alert-${config.type} alert-dismissible fade show mb-3`;
-        alertEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-        alertEl.style.animation = 'slideIn 0.3s ease-out';
+        alertEl.style.cssText = `
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease-out;
+            direction: rtl;
+        `;
         
-        // محتوای Alert
         alertEl.innerHTML = `
-            <div class="alert-content">${message}</div>
-            ${config.dismissible ? 
-                `<button type="button" class="close" onclick="this.parentElement.remove()">
-                    <span>&times;</span>
-                </button>` : ''}
+            <div class="alert-content-wrapper" style="display: flex; flex-direction: column; height: 100%;">
+                <div class="alert-content" style="max-height: 300px; overflow-y: auto; padding-right: 5px; direction: ltr; text-align: justify;">
+                    <p class="m-0" style="direction: rtl;">${message}</p>
+                </div>
+                
+                ${config.dismissible ? 
+                    `<button type="button" class="close" onclick="this.closest('.alert').remove()" style="align-self: flex-end; margin-left: auto;">
+                        <span>&times;</span>
+                    </button>` : ''}
+            </div>
+            
             ${config.duration > 0 ? 
                 `<div class="progress-bar" style="height: 3px; background: rgba(0,0,0,0.1); margin-top: 8px;">
                     <div class="progress-fill" style="height: 100%; width: 100%; background: currentColor;"></div>
                 </div>` : ''}
         `;
         
-        // اضافه کردن به لیست (با توجه به اولویت)
         const container = document.getElementById('alert-container');
         if (config.priority) {
             container.prepend(alertEl);
@@ -44,26 +47,27 @@
             container.appendChild(alertEl);
         }
         
-        // زمان‌بندی برای بستن خودکار
         if (config.duration > 0) {
-            // انیمیشن نوار پیشرفت
             const progressBar = alertEl.querySelector('.progress-fill');
             if (progressBar) {
                 progressBar.style.transition = `width ${config.duration}ms linear`;
                 setTimeout(() => progressBar.style.width = '0', 50);
             }
             
-            // حذف Alert پس از مدت زمان مشخص
             setTimeout(() => {
                 alertEl.style.animation = 'fadeOut 0.3s ease-out';
-                setTimeout(() => alertEl.remove(), 300);
+                setTimeout(() => {
+                    if (alertEl.parentNode) {
+                        alertEl.remove();
+                    }
+                }, 300);
             }, config.duration);
         }
         
         return alertEl;
     }
 
-    // انیمیشن‌های CSS (اضافه به <style> یا فایل CSS جداگانه)
+    // انیمیشن‌های CSS
     const style = document.createElement('style');
     style.textContent = `
         @keyframes slideIn {
@@ -74,12 +78,10 @@
             from { opacity: 1; }
             to { opacity: 0; }
         }
+        
+        .close:hover {
+            opacity: 0.5;
+        }
     `;
     document.head.appendChild(style);
-
-    //Sample:
-        //showAlert('این یک پیام اطلاعاتی است');
-        //showAlert('عملیات با موفقیت انجام شد', { type: 'success', duration: 3000 });
-        //showAlert('این یک هشدار مهم است!', { type: 'danger', dismissible: false, priority: true });        
-    
 </script>

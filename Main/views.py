@@ -4,7 +4,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from Main.models import *
 from Main.forms import *
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from translate import Translator
 from habanero import Crossref
@@ -482,7 +481,7 @@ def create_article_from_doi(doi):
 
     # دریافت داده از Crossref
     cr = Crossref()
-    work = cr.works(ids=doi)
+    work = cr.works(ids=doi, timeout=30)
     if not work or 'message' not in work:
         raise ValidationError("پاسخ نامعتبر از Crossref دریافت شد")
     
@@ -560,7 +559,6 @@ CONTENT_TYPE_MAPPING = { 'article': Article, 'book': Book, 'thesis': Thesis, 're
 @require_POST
 @transaction.atomic
 def add_reference_with_doi(request, content_type, object_id):
-
     try:
         # اعتبارسنجی کاربر
         if not request.user.is_authenticated:
@@ -573,9 +571,9 @@ def add_reference_with_doi(request, content_type, object_id):
                 {'success': False, 'error': 'DOI وارد شده معتبر نیست'},
                 status=400
             )
+
         # تشخیص مدل citing از روی content_type
         citing_model = CONTENT_TYPE_MAPPING.get(content_type.lower())
-        print(citing_model)
         if not citing_model:
             return JsonResponse(
                 {'success': False, 'error': 'نوع محتوای درخواست شده معتبر نیست'},
@@ -598,6 +596,20 @@ def add_reference_with_doi(request, content_type, object_id):
                 {'success': False, 'error': f'خطا در پردازش DOI: {str(e)}'},
                 status=400
             )
+
+        # بررسی وجود مرجع قبلی
+        existing_reference = Reference.objects.filter(
+            citing_content_type=ContentType.objects.get_for_model(citing_model),
+            citing_object_id=object_id,
+            cited_content_type=ContentType.objects.get_for_model(Article),
+            cited_object_id=cited_article.id
+        ).first()
+
+        if existing_reference:
+            return JsonResponse({
+                'success': False,
+                'error': 'این منبع قبلاً به پروژه اضافه شده است.'
+            }, status=400)
 
         # ایجاد رکورد مرجع
         reference = Reference.objects.create(
@@ -649,16 +661,65 @@ def generate_citation_key(model_type, object_id, doi):
     return f"ref_{model_type[:3]}_{object_id}_{doi_part}"
     
 
+import time
+import random
+from deep_translator import GoogleTranslator
 def translate_text(request):
-    if request.method == 'POST':
-        text = request.POST.get('text', '')
-        target_lang = request.POST.get('target_lang', 'fa')
-        
+    if request.method != 'POST':
+        return JsonResponse(
+            {'error': 'Only POST method is allowed'},
+            status=405
+        )
+
+    text = request.POST.get('text', '').strip()
+    target_lang = request.POST.get('target_lang', 'fa')
+
+    if not text:
+        return JsonResponse(
+            {'error': 'Text parameter is required'},
+            status=400
+        )
+
+    MAX_LENGTH = 5000  # محدودیت جدید برای deep-translator
+    if len(text) > MAX_LENGTH:
+        return JsonResponse(
+            {'error': f'Text too long (max {MAX_LENGTH} characters)'},
+            status=400
+        )
+
+    def translate_chunk(chunk):
         try:
-            translator = Translator(to_lang=target_lang)
-            translation = translator.translate(text)
-            return JsonResponse({'translation': translation})
+            return GoogleTranslator(
+                source='auto',
+                target=target_lang
+            ).translate(chunk)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-    
-    return JsonResponse({'error': 'فقط درخواست POST مجاز است'}, status=400)
+            raise Exception(f'Translation failed: {str(e)}')
+
+    try:
+        # اگر متن کوتاه است مستقیماً ترجمه شود
+        if len(text) <= 500:
+            translation = translate_chunk(text)
+            return JsonResponse({'translation': translation})
+        
+        # برای متن‌های طولانی:
+        chunks = [text[i:i+500] for i in range(0, len(text), 500)]
+        translations = []
+        
+        for i, chunk in enumerate(chunks):
+            # تاخیر تصادفی برای جلوگیری از محدودیت
+            if i > 0:
+                time.sleep(random.uniform(0.5, 1.5))
+            
+            translations.append(translate_chunk(chunk))
+        
+        return JsonResponse({
+            'translation': ' '.join(translations),
+            'chunks': len(chunks)
+        })
+
+    except Exception as e:
+        return JsonResponse(
+            {'error': str(e)},
+            status=500
+        )

@@ -55,6 +55,9 @@
 
     <!-- اسکریپت‌های مشترک -->
     <script src="/static/js/vendor/modernizr.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
     <script
       src="https://code.jquery.com/jquery-3.2.1.min.js"
       integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
@@ -107,8 +110,45 @@
     </script>
     <script src="/static/js/main.js"></script>
 
+    
+
     {% block scripts %}
-    <!-- اسکریپت‌های مخصوص صفحه -->
+    <script>
+      $('#exportPdf').click(function() {
+        const element = document.getElementById('contentToExport');
+        const opt = {
+          margin: 10,
+          filename: 'research_project_{{ research_project.id }}.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        // نمایش پیغام در حال پردازش
+        showAlert('در حال تولید PDF...', { type: 'info', duration: 2000 });
+        
+        // تولید PDF
+        html2pdf().set(opt).from(element).save();
+      });
+  
+      // تبدیل به Word
+      $('#exportWord').click(function() {
+        // نمایش پیغام در حال پردازش
+        showAlert('در حال تولید فایل Word...', { type: 'info', duration: 2000 });
+        
+        // محتوای HTML را آماده می‌کنیم
+        const content = $('#contentToExport').html();
+        
+        // تبدیل به فرمت docx
+        const converted = htmlDocx.asBlob(content, {
+          orientation: 'portrait',
+          margins: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+        });
+        
+        // ذخیره فایل
+        saveAs(converted, 'research_project_{{ research_project.id }}.docx');
+      });
+    </script>
     {% endblock %}
   </body>
 </html>

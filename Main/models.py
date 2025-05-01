@@ -856,7 +856,6 @@ class ResearchProjectSection(models.Model):
         ('materials', 'Materials/Instruments'),
         ('procedure', 'Procedure'),
         ('data_acquisition', 'Data acquisition and analysis'),
-        ('data_analysis', 'Data Analysis'),
         ('ethical_considerations', 'Ethical Considerations'),
     )
     

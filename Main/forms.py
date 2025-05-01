@@ -82,9 +82,8 @@ class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
         fields = [
-            'title', 'description', 'type', 'status', 'progress', 'visibility',
-            'start_date', 'end_date', 'collaborators', 'related_projects'
-        ]
+            'title', 'description', 'type', 'status','visibility','start_date', 'end_date',
+            ]
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -103,12 +102,6 @@ class ProjectForm(forms.ModelForm):
                 'class': 'form-control select2',
                 'id': 'project-status'
             }),
-            'progress': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'min': 0,
-                'max': 100,
-                'step': 5
-            }),
             'visibility': forms.Select(attrs={
                 'class': 'form-control select2'
             }),
@@ -122,14 +115,8 @@ class ProjectForm(forms.ModelForm):
                 'type': 'date',
                 'id': 'end-date'
             }),
-            'collaborators': forms.SelectMultiple(attrs={
-                'class': 'form-control select2-multiple',
-                'id': 'project-collaborators'
-            }),
-            'related_projects': forms.SelectMultiple(attrs={
-                'class': 'form-control select2-multiple',
-                'id': 'related-projects'
-            }),
+            
+            
         }
         labels = {
             'title': 'عنوان پروژه',
@@ -148,15 +135,6 @@ class ProjectForm(forms.ModelForm):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # فیلتر همکاران - نمایش همه کاربران به جز خود کاربر
-        if user:
-            self.fields['collaborators'].queryset = User.objects.exclude(id=user.id)
-            self.fields['related_projects'].queryset = Project.objects.filter(
-                Q(owner=user) | Q(collaborators=user)
-            ).distinct().exclude(id=self.instance.id) if self.instance else Project.objects.filter(
-                Q(owner=user) | Q(collaborators=user)
-            ).distinct()
-
     def clean(self):
         cleaned_data = super().clean()
         start_date = cleaned_data.get('start_date')
@@ -169,80 +147,44 @@ class ProjectForm(forms.ModelForm):
 
 
 class ResearchProjectForm(forms.ModelForm):
-    """
-    فرم یکپارچه برای ایجاد و ویرایش طرح پژوهشی
-    """
-    use_template = forms.BooleanField(
-        required=False,
-        initial=False,
-        label='استفاده از قالب',
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        help_text='برای استفاده از ساختار از پیش تعریف شده'
-    )
 
     class Meta:
         model = ResearchProject
         fields = [
-            'project','organization', 'research_code',
-            'supervisor', 'research_team', 'budget', 'funding_source',
-            'grant_number', 'deliverables', 'research_project_status'
+            'project','title','organization', 'research_code','supervisor', 'research_project_status'
         ]
         
         widgets = {
             'project': forms.Select(attrs={
-                'class': 'form-control select2',
+                'class': 'form-control select2 mb-2',
                 'data-placeholder': 'انتخاب پروژه'
+            }),
+
+            'title': forms.TextInput(attrs={
+                'class': 'form-control mb-2',
+                'data-placeholder': 'عنوان'
             }),
             
             'organization': forms.TextInput(attrs={
-                'class': 'form-control',
+                'class': 'form-control mb-2',
                 'placeholder': 'نام سازمان یا دانشگاه'
             }),
             'research_code': forms.TextInput(attrs={
-                'class': 'form-control',
+                'class': 'form-control mb-2',
                 'placeholder': 'کد پژوهشی'
             }),
             'supervisor': forms.TextInput(attrs={
-                'class': 'form-control',
+                'class': 'form-control mb-2',
                 'placeholder': 'نام سرپرست طرح'
-            }),
-            'research_team': forms.SelectMultiple(attrs={
-                'class': 'form-control select2-multiple',
-                'data-placeholder': 'انتخاب اعضای تیم'
-            }),
-            'budget': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'مبلغ به ریال'
-            }),
-            'funding_source': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'منبع تأمین مالی'
-            }),
-            'grant_number': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'شماره گرنت'
-            }),
-            'deliverables': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'خروجی‌های مورد انتظار'
             }),
             
         }
         labels = {
             'project': ' پروژه',
+            'title': ' عنوان',
             'organization': 'سازمان متولی',
             'research_code': 'کد پژوهشی',
             'supervisor': 'سرپرست طرح',
-            'research_team': 'اعضای تیم',
-            'budget': 'بودجه (ریال)',
-            'funding_source': 'منبع مالی',
-            'grant_number': 'شماره گرنت',
-            'deliverables': 'خروجی‌ها',
-        }
-        help_texts = {
-            'research_code': 'کد یکتا اختصاص داده شده به طرح',
-            'grant_number': 'شماره‌ای که حامی مالی به طرح اختصاص داده است'
         }
 
     def __init__(self, *args, **kwargs):
@@ -268,30 +210,11 @@ class ResearchProjectForm(forms.ModelForm):
             else:
                 self.fields['use_template'].widget = forms.HiddenInput()
         else:
-            # در حالت ایجاد، فیلد قالب را به صورت مشروط نمایش می‌دهیم
-            self.fields['template'] = forms.ModelChoiceField(
-                queryset=ResearchProjectTemplate.objects.all(),
-                widget=forms.Select(attrs={'class': 'form-control'}),
-                label='قالب طرح',
-                required=False
-            )
             self.fields['research_project_status'].initial = 'draft'
             self.fields['research_project_status'].widget = forms.HiddenInput()
-
-        # فیلتر کردن اعضای تیم
-        self.fields['research_team'].queryset = Author.objects.filter(user__is_active=True)
 
     def clean_budget(self):
         budget = self.cleaned_data.get('budget')
         if budget and budget < 0:
             raise forms.ValidationError("بودجه نمی‌تواند مقدار منفی داشته باشد.")
         return budget
-
-    def clean(self):
-        cleaned_data = super().clean()
-        use_template = cleaned_data.get('use_template')
-        
-        if use_template and not cleaned_data.get('template'):
-            self.add_error('template', 'در صورت انتخاب گزینه استفاده از قالب، باید یک قالب مشخص شود.')
-        
-        return cleaned_data

@@ -82,19 +82,11 @@ body.gradient {
     background-position: 0% 9%
   }
 }
-
-a,
 p {
-  display: inherit !important;
-}
-
-p {
-  
-}
-
-
-:not(.rtl) p {
-  text-align: left;
+  line-height: 1.5; /* ارتفاع خطوط منظم */
+  max-width: 1000px; /* طول خطوط ثابت برای همه پاراگراف‌ها */
+  margin: 0 auto 1em; /* فاصله بین پاراگراف‌ها */
+  text-align: justify;
 }
 
 .text-left,
@@ -109,8 +101,8 @@ p {
 .text-right,
 .text-right-rtl {
   text-align: right !important;
-}
 
+} 
 .text-dir-rtl {
   direction: rtl !important;
 }
@@ -2045,11 +2037,6 @@ body.rtl {
   float: right;
 }
 
-.rtl div,
-.rtl p {
-  text-align: right;
-}
-
 
 .rtl .accordion .btn i {
   float: left;
@@ -2235,11 +2222,6 @@ body.rtl {
 .rtl .side.a-collapse .arrow {
   float: left;
   transform: rotateZ(0deg);
-}
-
-
-.rtl p.side-comment {
-  text-align: right;
 }
 
 .rtl .side-item a i {
