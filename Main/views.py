@@ -21,6 +21,7 @@ from django.db import transaction
 from django.core.exceptions import PermissionDenied
 import re
 from datetime import datetime
+from django.forms import modelformset_factory
 
 
 
@@ -228,7 +229,47 @@ class ArticleListView(ListView):
 
 class ArticleDetailView(DetailView):
     model = Article
-    template_name = 'article_detail.html'
+    template_name = 'projects/article/article_detail.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        article = self.object
+        
+        # Create a formset for sections
+        SectionFormSet = modelformset_factory(
+            ArticleSection,
+            form=ArticleSectionForm,
+            extra=0,
+            can_delete=True
+        )
+        
+        if self.request.method == 'POST':
+            context['section_formset'] = SectionFormSet(
+                self.request.POST,
+                queryset=article.sections.all().order_by('position'),
+                prefix='sections'
+            )
+        else:
+            context['section_formset'] = SectionFormSet(
+                queryset=article.sections.all().order_by('position'),
+                prefix='sections'
+            )
+        
+        return context
+
+class ArticleUpdateView(UpdateView):
+    model = ArticleSection
+    form_class = ArticleSectionForm
+    template_name = 'projects/article/article_edit.html'
+    
+    def get_success_url(self):
+        return reverse_lazy('article_detail', kwargs={'pk': self.object.article.pk})
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'بخش با موفقیت به‌روزرسانی شد.')
+        return super().form_valid(form)
+    
+
 
 class ArticleCreateView(CreateView):
     model = Article
@@ -236,11 +277,7 @@ class ArticleCreateView(CreateView):
     fields = ['project', 'article_type', 'title', 'doi', 'abstract', 'keywords', 'authors', 'is_published', 'publish_date']
     success_url = reverse_lazy('article_list')
 
-class ArticleUpdateView(UpdateView):
-    model = Article
-    template_name = 'article_form.html'
-    fields = ['project', 'article_type', 'title', 'doi', 'abstract', 'keywords', 'authors', 'is_published', 'publish_date']
-    success_url = reverse_lazy('article_list')
+
 
 class ArticleDeleteView(DeleteView):
     model = Article

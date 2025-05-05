@@ -218,3 +218,45 @@ class ResearchProjectForm(forms.ModelForm):
         if budget and budget < 0:
             raise forms.ValidationError("بودجه نمی‌تواند مقدار منفی داشته باشد.")
         return budget
+
+
+
+
+class ArticleForm(forms.ModelForm):
+    class Meta:
+        model = Article
+        fields = [
+            'title',
+            'subtitle',
+            'article_type',
+            'journal',
+            'volume',
+            'issue',
+            'pages',
+            'doi',
+            'is_published',
+            'publish_date',
+            'keywords',
+            'authors'
+        ]
+        widgets = {
+            'publish_date': forms.DateInput(attrs={'type': 'date'}),
+            'keywords': forms.SelectMultiple(attrs={'class': 'select2'}),
+            'authors': forms.SelectMultiple(attrs={'class': 'select2'}),
+        }
+
+class ArticleSectionForm(forms.ModelForm):
+    class Meta:
+        model = ArticleSection
+        fields = [
+            'section_type',
+            'title',
+            'content',
+            'position',
+            'guidance'
+        ]
+        widgets = {
+            'content': forms.Textarea(attrs={'class': 'tinymce', 'rows': 5}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'guidance': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }

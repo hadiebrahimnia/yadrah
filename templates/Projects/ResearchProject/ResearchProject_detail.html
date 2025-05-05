@@ -1,9 +1,9 @@
 {% extends 'base/base.html' %}
 
 {% block content %}
+
 {% include "base/title.html" with title=research_project.project.title subtitle=research_project.organization|add:"/"|add:research_project.supervisor button_text="ویرایش" button_link=research_project.get_absolute_url|add:"update/" %}
 <a href="/admin/Main/researchproject/{{ research_project.id }}/change/" target="_blank">صفحه ادمین</a>
-
 <div class="row" id="contentToExport">
   {% for section in sections %}
   <div class="page-header breadcrumb-header f-white outlined o-link c-main p-3 mr-2 ml-2 m-2">
@@ -103,7 +103,9 @@
                     <td>{{ forloop.counter }}</td>
                     <td>{{ ref.type }}</td>
                     <td >
-                        {{ ref.object.title }}
+                        <a href="/articles/{{ ref.object.id }}" target="_blank">
+                          {{ ref.object.title }}
+                        </a>
                     </td>
                     <td style="direction:ltr">{{ ref.object.doi|default:"-" }}</td>
                     <td class="text-dir-ltr text-left" style="font-size: 0.8rem;">

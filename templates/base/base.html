@@ -112,7 +112,6 @@
 
     
 
-    {% block scripts %}
     <script>
       $('#exportPdf').click(function() {
         const element = document.getElementById('contentToExport');
@@ -149,6 +148,5 @@
         saveAs(converted, 'research_project_{{ research_project.id }}.docx');
       });
     </script>
-    {% endblock %}
   </body>
 </html>

@@ -1,0 +1,70 @@
+{% extends 'base/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+{% include "base/title.html" with title="مقاله" subtitle=article.title %}
+
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h2>اطلاعات مقاله</h2>
+            <a href="{% url 'article_update' article.pk %}" class="btn btn-primary">ویرایش مقاله</a>
+        </div>
+        <div class="card-body">
+            <h3>{{ article.title }}</h3>
+            {% if article.subtitle %}
+                <h4 class="text-muted">{{ article.subtitle }}</h4>
+            {% endif %}
+            
+            <div class="article-meta mb-4">
+                <p><strong>نوع مقاله:</strong> {{ article.get_article_type_display }}</p>
+                <p><strong>وضعیت:</strong> {{ article.get_aricale_status_display }}</p>
+                <p><strong>نویسندگان:</strong> {{ article.get_authors_display }}</p>
+                {% if article.journal %}
+                    <p><strong>ژورنال:</strong> {{ article.journal }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>بخش‌های مقاله</h2>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ section_formset.management_form }}
+                
+                <div class="sections-list">
+                    {% for form in section_formset %}
+                        <div class="section-item mb-4 p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h4>{{ form.instance.get_section_type_display }}</h4>
+                                <div>
+                                    <a href="{% url 'article_update' form.instance.pk %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        ویرایش
+                                    </a>
+                                    {% if form.DELETE %}
+                                        {{ form.DELETE }} حذف
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <h5>{{ form.instance.title }}</h5>
+                            <div class="section-content mb-3 " style="direction:ltr;text-align: justify;">
+                                {{ form.instance.content|safe }}
+                            </div>
+                            
+                            {{ form.id }}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="submit" class="btn btn-primary">ذخیره تغییرات</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

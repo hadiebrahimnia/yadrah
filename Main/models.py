@@ -577,10 +577,12 @@ class ArticleSection(models.Model):
         ('introduction', 'Introduction'),
         
         # Research Method sections
+        ('method', 'Method'),
         ('stimuli', 'Stimuli'),
         ('subject', 'Subject'),
         ('procedure', 'Procedure'),
         ('data_acquisition', 'Data acquisition and analysis'),
+        ('equipment', 'Equipment'),
         
         # Research sections
         ('results', 'Results'),
@@ -853,6 +855,7 @@ class ResearchProjectSection(models.Model):
     SECTION_TYPES = (
         ('subject', 'Subject'),
         ('stimuli', 'Stimuli'),
+        ('equipment', 'Equipment'),
         ('materials', 'Materials/Instruments'),
         ('procedure', 'Procedure'),
         ('data_acquisition', 'Data acquisition and analysis'),
